@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { QrCode, CheckCircle2, XCircle, AlertOctagon, Wifi, WifiOff, RefreshCw, Smartphone, Scan } from 'lucide-react';
+import { QrCode, CheckCircle2, XCircle, AlertOctagon, Wifi, WifiOff, RefreshCw, Scan } from 'lucide-react';
 import api from '@/lib/api';
+import { useConfirm } from '@/hooks/useConfirm';
+import { segmentConfirmTemplates } from '@/lib/confirmPresets';
 
 interface ScanResult {
   result: 'valid' | 'invalid' | 'duplicate' | 'expired';
@@ -14,6 +16,7 @@ interface ScanResult {
 }
 
 export default function GateScanPage() {
+  const confirm = useConfirm();
   const [qrInput, setQrInput] = useState('');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [flashColor, setFlashColor] = useState<'emerald' | 'red' | 'amber' | null>(null);
@@ -21,6 +24,7 @@ export default function GateScanPage() {
   const [pendingLogs, setPendingLogs] = useState<number>(0);
   const [scanLogs, setScanLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   useEffect(() => {
     // Check connection state
@@ -31,9 +35,15 @@ export default function GateScanPage() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Auto-refresh gate scan connection health every 15 seconds
+    const interval = setInterval(() => {
+      setIsOnline(navigator.onLine);
+    }, 15000);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
     };
   }, []);
 
@@ -94,14 +104,19 @@ export default function GateScanPage() {
     }
   };
 
-  const handleSyncLogs = async () => {
+  const handleSyncLogsClick = async () => {
     if (pendingLogs === 0) return;
+
+    const isConfirmed = await segmentConfirmTemplates.syncLogs(confirm, pendingLogs);
+    if (!isConfirmed) return;
+
+    setFeedbackMsg(null);
     try {
       await api.post('/gate/sync-logs', { logs: [] });
       setPendingLogs(0);
-      alert('Semua scan log offline berhasil disinkronkan ke server!');
+      setFeedbackMsg({ type: 'success', msg: 'Semua scan log offline berhasil disinkronkan ke server pusat!' });
     } catch (err) {
-      alert('Gagal sinkronisasi');
+      setFeedbackMsg({ type: 'error', msg: 'Gagal sinkronisasi log offline. Pastikan server terhubung.' });
     }
   };
 
@@ -142,14 +157,30 @@ export default function GateScanPage() {
         </div>
       )}
 
+      {/* Feedback Banner */}
+      {feedbackMsg && (
+        <div
+          className={`p-4 rounded-2xl border text-xs font-bold flex items-center justify-between shadow-xs ${
+            feedbackMsg.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
+          <span>{feedbackMsg.msg}</span>
+          <button onClick={() => setFeedbackMsg(null)} className="text-xs font-black">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Top Header & Offline Sync Badge */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+          <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
             <QrCode className="w-6 h-6 text-indigo-600" />
             Gate Access Scanner (Staff Mode)
           </h1>
-          <p className="text-xs text-zinc-500">Validator tiket dengan performa sub-500ms &amp; fallback sinkronisasi offline.</p>
+          <p className="text-xs text-slate-500 font-medium">Validator tiket dengan performa sub-500ms &amp; fallback sinkronisasi offline.</p>
         </div>
 
         {/* OfflineSyncBadge */}
@@ -157,8 +188,8 @@ export default function GateScanPage() {
           <div
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold ${
               isOnline
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                : 'bg-amber-50 text-amber-800 border border-amber-200'
             }`}
           >
             {isOnline ? <Wifi className="w-4 h-4 text-emerald-600" /> : <WifiOff className="w-4 h-4 text-amber-600" />}
@@ -167,8 +198,8 @@ export default function GateScanPage() {
 
           {pendingLogs > 0 && (
             <button
-              onClick={handleSyncLogs}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+              onClick={handleSyncLogsClick}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Sync ({pendingLogs})
@@ -179,14 +210,14 @@ export default function GateScanPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Scanner Control & Simulator */}
-        <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 space-y-6 shadow-sm">
-          <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-6 shadow-xs">
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <Scan className="w-5 h-5 text-indigo-600" />
             Simulasi Input QR Token
           </h2>
 
           <div className="space-y-3">
-            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+            <label className="block text-xs font-semibold text-slate-700">
               Tempel QR Token Base64 atau Input Manual:
             </label>
             <textarea
@@ -194,7 +225,7 @@ export default function GateScanPage() {
               value={qrInput}
               onChange={(e) => setQrInput(e.target.value)}
               placeholder="Masukkan string payload QR token dari halaman My Tickets..."
-              className="w-full p-3 rounded-2xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 font-mono text-xs text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500"
+              className="w-full p-3 rounded-2xl border border-slate-300 bg-slate-50 font-mono text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <button
               onClick={() => triggerScan()}
@@ -210,10 +241,10 @@ export default function GateScanPage() {
             <div
               className={`p-4 rounded-2xl border text-xs font-bold space-y-1 ${
                 scanResult.result === 'valid'
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-900'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                   : scanResult.result === 'duplicate'
-                  ? 'bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-900'
-                  : 'bg-red-50 border-red-200 text-red-900 dark:bg-red-950/40 dark:border-red-900'
+                  ? 'bg-amber-50 border-amber-200 text-amber-900'
+                  : 'bg-red-50 border-red-200 text-red-900'
               }`}
             >
               <div className="text-sm uppercase tracking-wider">{scanResult.message}</div>
@@ -224,23 +255,23 @@ export default function GateScanPage() {
         </div>
 
         {/* Scan Log History */}
-        <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
-          <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Riwayat Scan Gate Sesi Ini</h2>
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-4 shadow-xs">
+          <h2 className="text-base font-bold text-slate-900">Riwayat Scan Gate Sesi Ini</h2>
           {scanLogs.length === 0 ? (
-            <div className="text-center py-12 text-zinc-400 text-xs">Belum ada aktivitas scan gate.</div>
+            <div className="text-center py-12 text-slate-400 text-xs font-medium">Belum ada aktivitas scan gate.</div>
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
               {scanLogs.map((log) => (
                 <div
                   key={log.id}
-                  className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-between text-xs"
+                  className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
                 >
                   <div>
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100 block">Kursi: {log.seat}</span>
-                    <span className="text-[10px] text-zinc-400">{log.time} — {log.ticket_id}</span>
+                    <span className="font-bold text-slate-900 block">Kursi: {log.seat}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{log.time} — {log.ticket_id}</span>
                   </div>
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${
                       log.result === 'valid'
                         ? 'bg-emerald-100 text-emerald-800'
                         : log.result === 'duplicate'

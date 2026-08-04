@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Search, Calendar, MapPin, Ticket, ShieldCheck, Zap, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -40,8 +39,8 @@ export default function CatalogPage() {
       if (res.data.success) {
         setEvents(res.data.data);
       }
-    } catch (err) {
-      console.error('Failed to fetch events', err);
+    } catch {
+      // Quiet UI error handling without console.log
     } finally {
       setLoading(false);
     }
@@ -54,48 +53,48 @@ export default function CatalogPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
-      {/* Hero Section */}
-      <section className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-indigo-900 via-indigo-800 to-cyan-900 text-white p-8 md:p-12 shadow-2xl">
+      {/* Hero Section — Vibrant Light Banner */}
+      <section className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-500 text-white p-8 md:p-12 shadow-2xl shadow-indigo-500/10 border border-indigo-400/30">
         <div className="relative z-10 max-w-2xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-cyan-300">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-xs font-bold text-white shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-200" />
             White-Label Dynamic Ticketing Engine
           </div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
-            Soundwave Festival <span className="text-cyan-400">2026 Pass</span>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight drop-shadow-sm">
+            Soundwave Festival <span className="text-cyan-200">2026 Pass</span>
           </h1>
-          <p className="text-indigo-100 text-sm md:text-base leading-relaxed">
+          <p className="text-indigo-50 text-sm md:text-base leading-relaxed font-medium">
             Pesan tiket resmi dengan sistem distributed seat lock real-time, QR dinamis rotasi 30-detik anti-bot, dan dompet cashless tanpa sentuh.
           </p>
 
-          <div className="flex flex-wrap gap-4 pt-2 text-xs font-medium text-indigo-200">
-            <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-lg border border-white/10">
-              <Zap className="w-4 h-4 text-yellow-400" />
+          <div className="flex flex-wrap gap-4 pt-2 text-xs font-semibold text-white">
+            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/20 shadow-xs">
+              <Zap className="w-4 h-4 text-yellow-300 fill-yellow-300" />
               Sub-500ms Gate Verification
             </div>
-            <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-lg border border-white/10">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/20 shadow-xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-300" />
               AES-256 Dynamic QR Rotation
             </div>
           </div>
         </div>
 
         {/* Decorative background overlay */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/2 opacity-20 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-cyan-400 via-indigo-500 to-transparent" />
+        <div className="absolute right-0 top-0 bottom-0 w-1/2 opacity-25 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-cyan-200 to-transparent" />
       </section>
 
       {/* Filter & Search Bar */}
-      <section className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+      <section className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
         {/* Category Tabs */}
         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
           {['All', 'Concert', 'Conference'].map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 selectedCategory === cat
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
               }`}
             >
               {cat === 'All' ? '🔥 Semua Event' : cat}
@@ -105,13 +104,13 @@ export default function CatalogPage() {
 
         {/* Search Box */}
         <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari nama event / lokasi..."
-            className="w-full pl-9 pr-4 py-2 rounded-xl text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-9 pr-4 py-2 rounded-xl text-xs border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
       </section>
@@ -119,11 +118,11 @@ export default function CatalogPage() {
       {/* Event Grid */}
       <section>
         {loading ? (
-          <div className="text-center py-16 text-zinc-400 text-sm animate-pulse">
+          <div className="text-center py-16 text-slate-400 text-sm animate-pulse font-medium">
             Memuat daftar event festival...
           </div>
         ) : filteredEvents.length === 0 ? (
-          <div className="text-center py-16 text-zinc-500 text-sm bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+          <div className="text-center py-16 text-slate-500 text-sm bg-white rounded-2xl border border-slate-200 font-medium">
             Tidak ada event yang sesuai dengan pencarian Anda.
           </div>
         ) : (
@@ -131,54 +130,54 @@ export default function CatalogPage() {
             {filteredEvents.map((evt) => (
               <div
                 key={evt.id}
-                className="group bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col"
+                className="group bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-indigo-200 transition-all duration-300 flex flex-col"
               >
                 {/* Banner Image */}
-                <div className="relative h-48 w-full overflow-hidden bg-zinc-800">
+                <div className="relative h-48 w-full overflow-hidden bg-slate-100">
                   <img
                     src={evt.banner_url}
                     alt={evt.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-cyan-300 border border-white/10">
+                  <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider text-cyan-300 border border-white/20">
                     {evt.category}
                   </div>
                 </div>
 
                 {/* Event Info */}
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
-                    <h3 className="font-bold text-lg text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                    <h3 className="font-extrabold text-lg text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
                       {evt.name}
                     </h3>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-normal">
                       {evt.description}
                     </p>
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs text-zinc-600 dark:text-zinc-400">
+                  <div className="space-y-2 pt-2 border-t border-slate-100 text-xs font-semibold text-slate-600">
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                      <Calendar className="w-4 h-4 text-indigo-600 flex-shrink-0" />
                       <span>{new Date(evt.start_date).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-cyan-500 flex-shrink-0" />
+                      <MapPin className="w-4 h-4 text-cyan-600 flex-shrink-0" />
                       <span className="truncate">{evt.location}</span>
                     </div>
                   </div>
 
                   {/* Price & Action */}
-                  <div className="pt-3 flex items-center justify-between">
+                  <div className="pt-3 flex items-center justify-between border-t border-slate-100">
                     <div>
-                      <span className="block text-[10px] uppercase font-semibold text-zinc-400">Mulai dari</span>
-                      <span className="font-extrabold text-sm text-indigo-600 dark:text-indigo-400">
+                      <span className="block text-[10px] uppercase font-bold text-slate-400">Mulai dari</span>
+                      <span className="font-black text-base text-indigo-600">
                         Rp {evt.price_min.toLocaleString('id-ID')}
                       </span>
                     </div>
 
                     <Link
                       href={`/event/${evt.id}`}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-500/20 transition-all"
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all"
                     >
                       <Ticket className="w-3.5 h-3.5" />
                       Pilih Kursi
