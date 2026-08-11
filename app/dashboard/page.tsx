@@ -13,8 +13,9 @@ interface DashboardMetrics {
   total_scanned: number;
   occupancy_rate_percent: number;
   checkin_rate_percent: number;
-  recent_orders: any[];
-  gate_scan_logs_recent: any[];
+  recent_orders?: any[];
+  recent_scan_logs?: any[];
+  gate_scan_logs_recent?: any[];
 }
 
 function StatCard({
@@ -383,36 +384,40 @@ export default function DashboardPage() {
                 <QrCode className="w-4 h-4 text-emerald-600" />
                 Recent Gate Scans
               </h2>
-              {metrics.gate_scan_logs_recent.length === 0 ? (
-                <div className="text-center py-8 text-xs text-slate-400 font-medium">Belum ada aktivitas scan gate.</div>
-              ) : (
-                <div className="space-y-2">
-                  {metrics.gate_scan_logs_recent.map((log: any, idx: number) => (
-                    <div
-                      key={log.id || idx}
-                      className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs"
-                    >
-                      <div>
-                        <span className="font-bold text-slate-900 block">{log.ticket_id}</span>
-                        <span className="text-slate-400 font-medium">
-                          {new Date(log.scanned_at).toLocaleTimeString('id-ID')}
+              {(() => {
+                const scanLogs = metrics.recent_scan_logs || metrics.gate_scan_logs_recent || [];
+                if (scanLogs.length === 0) {
+                  return <div className="text-center py-8 text-xs text-slate-400 font-medium">Belum ada aktivitas scan gate.</div>;
+                }
+                return (
+                  <div className="space-y-2">
+                    {scanLogs.map((log: any, idx: number) => (
+                      <div
+                        key={log.id || idx}
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs"
+                      >
+                        <div>
+                          <span className="font-bold text-slate-900 block">{log.ticket_id}</span>
+                          <span className="text-slate-400 font-medium">
+                            {new Date(log.scanned_at).toLocaleTimeString('id-ID')}
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            log.result === 'valid'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : log.result === 'duplicate'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {log.result}
                         </span>
                       </div>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          log.result === 'valid'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : log.result === 'duplicate'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {log.result}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -422,53 +427,57 @@ export default function DashboardPage() {
               <CheckCircle2 className="w-4 h-4 text-indigo-600" />
               Transaksi Terakhir
             </h2>
-            {metrics.recent_orders.length === 0 ? (
-              <div className="text-center py-6 text-xs text-slate-400 font-medium">Belum ada transaksi.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      <th className="pb-2 pr-4">Order ID</th>
-                      <th className="pb-2 pr-4">Gateway</th>
-                      <th className="pb-2 pr-4">Status</th>
-                      <th className="pb-2 pr-4">Total</th>
-                      <th className="pb-2">Waktu</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {metrics.recent_orders.map((order: any) => (
-                      <tr key={order.id}>
-                        <td className="py-2.5 pr-4 font-mono text-slate-700 font-bold">{order.id}</td>
-                        <td className="py-2.5 pr-4 text-slate-600 font-medium">{order.payment_gateway}</td>
-                        <td className="py-2.5 pr-4">
-                          <span
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
-                              order.status === 'paid'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : order.status === 'pending'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="py-2.5 pr-4 font-bold text-slate-900">
-                          Rp {order.amount.toLocaleString('id-ID')}
-                        </td>
-                        <td className="py-2.5 text-slate-400 font-medium">
-                          {new Date(order.created_at).toLocaleString('id-ID', {
-                            dateStyle: 'short',
-                            timeStyle: 'short',
-                          })}
-                        </td>
+            {(() => {
+              const orders = metrics.recent_orders || [];
+              if (orders.length === 0) {
+                return <div className="text-center py-6 text-xs text-slate-400 font-medium">Belum ada transaksi.</div>;
+              }
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <th className="pb-2 pr-4">Order ID</th>
+                        <th className="pb-2 pr-4">Gateway</th>
+                        <th className="pb-2 pr-4">Status</th>
+                        <th className="pb-2 pr-4">Total</th>
+                        <th className="pb-2">Waktu</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {orders.map((order: any) => (
+                        <tr key={order.id}>
+                          <td className="py-2.5 pr-4 font-mono text-slate-700 font-bold">{order.id}</td>
+                          <td className="py-2.5 pr-4 text-slate-600 font-medium">{order.payment_gateway}</td>
+                          <td className="py-2.5 pr-4">
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                                order.status === 'paid'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : order.status === 'pending'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="py-2.5 pr-4 font-bold text-slate-900">
+                            Rp {order.amount?.toLocaleString('id-ID') ?? 0}
+                          </td>
+                          <td className="py-2.5 text-slate-400 font-medium">
+                            {new Date(order.created_at).toLocaleString('id-ID', {
+                              dateStyle: 'short',
+                              timeStyle: 'short',
+                            })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </div>
         </div>
       ) : (

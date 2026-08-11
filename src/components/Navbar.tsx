@@ -13,6 +13,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { user, setUser, logout, setHydrated } = useAppStore();
   const confirm = useConfirm();
+  const [mounted, setMounted] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,8 +21,16 @@ export default function Navbar() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
+    setMounted(true);
     // Revalidate profile on initial load if token exists
     const token = localStorage.getItem('wl_token');
+    const cachedUser = localStorage.getItem('wl_user');
+    if (cachedUser && !user) {
+      try {
+        setUser(JSON.parse(cachedUser), token || undefined);
+      } catch {}
+    }
+
     if (token) {
       api
         .get('/auth/me')
@@ -40,7 +49,6 @@ export default function Navbar() {
       setHydrated(true);
     }
   }, [setUser, logout, setHydrated]);
-
 
   const handleLogin = async (e?: React.FormEvent, customEmail?: string, customPass?: string) => {
     if (e) e.preventDefault();
@@ -71,12 +79,14 @@ export default function Navbar() {
     }
   };
 
-  // Navigasi Berbasis Role
+  // Navigasi Berbasis Role (Hanya diproses jika sudah mounted untuk cegah hydration mismatch)
   const getNavLinks = () => {
     const links = [
       { href: '/', label: 'Beranda', icon: Sparkles },
       { href: '/events', label: 'Catalog Event', icon: Ticket },
     ];
+
+    if (!mounted) return links;
 
     if (user?.role === 'visitor') {
       links.push({ href: '/my-tickets', label: 'My Tickets', icon: Ticket });
@@ -139,7 +149,7 @@ export default function Navbar() {
 
           {/* Auth Controls */}
           <div className="flex items-center gap-3">
-            {user ? (
+            {mounted && user ? (
               <div className="flex items-center gap-3">
                 <div className="hidden sm:flex flex-col items-end">
                   <span className="text-xs font-semibold text-slate-800">{user.name}</span>

@@ -43,8 +43,8 @@ const getInitialUser = (): User | null => {
 };
 
 export const useAppStore = create<AppState>((set) => ({
-  user: getInitialUser(),
-  token: typeof window !== 'undefined' ? localStorage.getItem('wl_token') : null,
+  user: null,
+  token: null,
   isHydrated: false,
   selectedSeats: [],
   activeEventId: null,
