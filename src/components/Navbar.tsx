@@ -65,13 +65,30 @@ export default function Navbar() {
     }
   };
 
-  const navLinks = [
-    { href: '/', label: 'Catalog', icon: Sparkles },
-    { href: '/my-tickets', label: 'My Tickets', icon: Ticket },
-    { href: '/wallet', label: 'Cashless Wallet', icon: Wallet },
-    { href: '/gate-scan', label: 'Gate Scan', icon: QrCode },
-    { href: '/dashboard', label: 'Organizer', icon: LayoutDashboard },
-  ];
+  // Navigasi Berbasis Role
+  const getNavLinks = () => {
+    const links = [
+      { href: '/', label: 'Beranda', icon: Sparkles },
+      { href: '/events', label: 'Catalog Event', icon: Ticket },
+    ];
+
+    if (user?.role === 'visitor') {
+      links.push({ href: '/my-tickets', label: 'My Tickets', icon: Ticket });
+      links.push({ href: '/payment-methods', label: 'Metode Pembayaran', icon: Wallet });
+    }
+
+    if (user?.role === 'organizer' || user?.role === 'admin') {
+      links.push({ href: '/dashboard', label: 'Organizer Dashboard', icon: LayoutDashboard });
+    }
+
+    if (user?.role === 'admin') {
+      links.push({ href: '/gate-scan', label: 'Gate Scan', icon: QrCode });
+    }
+
+    return links;
+  };
+
+  const navLinks = getNavLinks();
 
   return (
     <>
@@ -87,7 +104,7 @@ export default function Navbar() {
                 Soundwave Festival
               </span>
               <span className="text-[10px] uppercase tracking-widest font-bold text-indigo-600">
-                White Label Ticketing
+                White Label Platform
               </span>
             </div>
           </Link>
@@ -101,7 +118,7 @@ export default function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
                     active
                       ? 'bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
@@ -133,13 +150,21 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => setIsAuthOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all"
-              >
-                <LogIn className="w-4 h-4" />
-                Sign In
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/register"
+                  className="hidden sm:inline-flex px-3.5 py-2 rounded-xl text-xs font-bold border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-all"
+                >
+                  Register
+                </Link>
+                <button
+                  onClick={() => setIsAuthOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sign In
+                </button>
+              </div>
             )}
           </div>
         </div>

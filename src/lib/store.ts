@@ -61,3 +61,8 @@ export const useAppStore = create<AppState>((set) => ({
   clearSeatSelection: () => set({ selectedSeats: [] }),
   setActiveEventId: (activeEventId) => set({ activeEventId }),
 }));
+
+export const isOrganizer = (user: User | null) => user?.role === 'organizer' || user?.role === 'admin';
+export const isVisitor = (user: User | null) => user?.role === 'visitor';
+export const isGateStaff = (user: User | null) => user?.role === 'gate_staff';
+
