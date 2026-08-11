@@ -11,7 +11,7 @@ interface AuthGuardProps {
 export default function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, token } = useAppStore();
+  const { user, token, isHydrated } = useAppStore();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -21,7 +21,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   useEffect(() => {
     if (!mounted) return;
 
-    // Direct access rules
+    // Wait until hydration complete before enforcing route protection
+    if (token && !isHydrated && !user) return;
+
     if (pathname.startsWith('/dashboard')) {
       if (!token || (user && user.role !== 'organizer' && user.role !== 'admin')) {
         router.replace('/events');
@@ -33,7 +35,8 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         router.replace('/events');
       }
     }
-  }, [pathname, user, token, router, mounted]);
+  }, [pathname, user, token, isHydrated, router, mounted]);
 
   return <>{children}</>;
 }
+

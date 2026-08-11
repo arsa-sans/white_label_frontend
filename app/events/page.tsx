@@ -133,8 +133,11 @@ export default function EventsCatalogPage() {
                   <img
                     src={evt.banner_url}
                     alt={evt.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
+
                   <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider text-cyan-300 border border-white/20">
                     {evt.category}
                   </div>

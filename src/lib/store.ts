@@ -21,18 +21,31 @@ export interface Seat {
 interface AppState {
   user: User | null;
   token: string | null;
+  isHydrated: boolean;
   selectedSeats: Seat[];
   activeEventId: string | null;
   setUser: (user: User | null, token?: string) => void;
   logout: () => void;
+  setHydrated: (hydrated: boolean) => void;
   toggleSeatSelection: (seat: Seat) => void;
   clearSeatSelection: () => void;
   setActiveEventId: (eventId: string | null) => void;
 }
 
+const getInitialUser = (): User | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = localStorage.getItem('wl_user');
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const useAppStore = create<AppState>((set) => ({
-  user: null,
+  user: getInitialUser(),
   token: typeof window !== 'undefined' ? localStorage.getItem('wl_token') : null,
+  isHydrated: false,
   selectedSeats: [],
   activeEventId: null,
 
@@ -40,13 +53,21 @@ export const useAppStore = create<AppState>((set) => ({
     if (token) {
       localStorage.setItem('wl_token', token);
     }
-    set({ user, token: token || localStorage.getItem('wl_token') });
+    if (user) {
+      localStorage.setItem('wl_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('wl_user');
+    }
+    set({ user, token: token || localStorage.getItem('wl_token'), isHydrated: true });
   },
 
   logout: () => {
     localStorage.removeItem('wl_token');
-    set({ user: null, token: null, selectedSeats: [] });
+    localStorage.removeItem('wl_user');
+    set({ user: null, token: null, selectedSeats: [], isHydrated: true });
   },
+
+  setHydrated: (isHydrated) => set({ isHydrated }),
 
   toggleSeatSelection: (seat) =>
     set((state) => {
@@ -65,4 +86,5 @@ export const useAppStore = create<AppState>((set) => ({
 export const isOrganizer = (user: User | null) => user?.role === 'organizer' || user?.role === 'admin';
 export const isVisitor = (user: User | null) => user?.role === 'visitor';
 export const isGateStaff = (user: User | null) => user?.role === 'gate_staff';
+
 

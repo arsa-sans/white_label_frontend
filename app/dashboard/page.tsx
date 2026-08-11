@@ -82,15 +82,22 @@ export default function DashboardPage() {
   const [staffError, setStaffError] = useState('');
 
   useEffect(() => {
-    if (token && user && user.role !== 'organizer' && user.role !== 'admin') {
+    if (!token) {
       router.replace('/events');
       return;
     }
+
+    if (user && user.role !== 'organizer' && user.role !== 'admin') {
+      router.replace('/events');
+      return;
+    }
+
     fetchMetrics();
     fetchStaff();
     const interval = setInterval(fetchMetrics, 30000);
     return () => clearInterval(interval);
   }, [user, token, router]);
+
 
   const fetchMetrics = async () => {
     try {

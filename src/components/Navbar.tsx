@@ -11,7 +11,7 @@ import { segmentConfirmTemplates } from '@/lib/confirmPresets';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, setUser, logout } = useAppStore();
+  const { user, setUser, logout, setHydrated } = useAppStore();
   const confirm = useConfirm();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [email, setEmail] = useState('');
@@ -20,21 +20,27 @@ export default function Navbar() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    // Fetch profile on initial load if token exists
+    // Revalidate profile on initial load if token exists
     const token = localStorage.getItem('wl_token');
-    if (token && !user) {
+    if (token) {
       api
         .get('/auth/me')
         .then((res) => {
           if (res.data.success) {
-            setUser(res.data.data);
+            setUser(res.data.data, token);
           }
         })
         .catch(() => {
           logout();
+        })
+        .finally(() => {
+          setHydrated(true);
         });
+    } else {
+      setHydrated(true);
     }
-  }, [setUser, logout, user]);
+  }, [setUser, logout, setHydrated]);
+
 
   const handleLogin = async (e?: React.FormEvent, customEmail?: string, customPass?: string) => {
     if (e) e.preventDefault();

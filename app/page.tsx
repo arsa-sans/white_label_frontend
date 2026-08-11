@@ -153,8 +153,15 @@ export default function LandingPage() {
               {featuredEvents.map((evt) => (
                 <div key={evt.id} className="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-xs hover:shadow-lg transition-all flex flex-col justify-between">
                   <div className="relative h-44 w-full">
-                    <img src={evt.banner_url} alt={evt.name} className="w-full h-full object-cover" />
+                    <img
+                      src={evt.banner_url}
+                      alt={evt.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                    />
                     <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-slate-900/80 text-cyan-300 font-extrabold text-[10px] uppercase backdrop-blur-md">
+
                       {evt.category}
                     </span>
                   </div>
