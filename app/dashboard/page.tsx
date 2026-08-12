@@ -70,8 +70,27 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   
-  // Tab state: 'analytics' | 'staff'
-  const [activeTab, setActiveTab] = useState<'analytics' | 'staff'>('analytics');
+  // Tab state: 'analytics' | 'staff' | 'admin'
+  const [activeTab, setActiveTab] = useState<'analytics' | 'staff' | 'admin'>('analytics');
+  const [pendingOrganizers, setPendingOrganizers] = useState<any[]>([]);
+
+  const fetchPendingOrganizers = async () => {
+    try {
+      const res = await api.get('/auth/pending-organizers');
+      if (res.data.success) {
+        setPendingOrganizers(res.data.data);
+      }
+    } catch {}
+  };
+
+  const handleReviewOrganizer = async (userId: string, action: 'approved' | 'rejected') => {
+    try {
+      const res = await api.post(`/auth/${userId}/review`, { action });
+      if (res.data.success) {
+        setPendingOrganizers((prev) => prev.filter((u) => u.id !== userId));
+      }
+    } catch {}
+  };
 
   // Staff management states
   const [staffList, setStaffList] = useState<any[]>([]);
@@ -198,6 +217,16 @@ export default function DashboardPage() {
             >
               Manajemen Gate Staff ({staffList.length})
             </button>
+            {(user?.role === 'admin' || user?.role === 'organizer') && (
+              <button
+                onClick={() => { setActiveTab('admin'); fetchPendingOrganizers(); }}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeTab === 'admin' ? 'bg-white text-purple-600 shadow-xs' : 'text-slate-500'
+                }`}
+              >
+                Approval Organizer ({pendingOrganizers.length})
+              </button>
+            )}
           </div>
 
           <button
@@ -210,7 +239,67 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {activeTab === 'staff' ? (
+      {activeTab === 'admin' ? (
+        /* Admin Pending Organizer Approvals Section */
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-xs">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Verifikasi & Approval Akun Organizer</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Email pengajuan dikirim ke Admin <strong>arsaprayata72@gmail.com</strong>. Tinjau kelayakan berkas NIK, Perusahaan, dan Event sebelum menyetujui.
+            </p>
+          </div>
+
+          {pendingOrganizers.length === 0 ? (
+            <div className="text-center py-12 text-xs text-slate-400 font-medium">
+              Tidak ada pengajuan akun organizer yang pending saat ini. Semua telah terverifikasi.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {pendingOrganizers.map((org) => (
+                <div key={org.id} className="p-5 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-100 pb-3">
+                    <div>
+                      <h3 className="font-extrabold text-sm text-slate-900">{org.name}</h3>
+                      <span className="text-xs font-mono text-slate-500">{org.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleReviewOrganizer(org.id, 'approved')}
+                        className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs"
+                      >
+                        ✓ Setujui (Approve)
+                      </button>
+                      <button
+                        onClick={() => handleReviewOrganizer(org.id, 'rejected')}
+                        className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs"
+                      >
+                        ✕ Tolak (Reject)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Event Di-Submit</span>
+                      <span className="font-bold text-slate-800">{org.organizer_event_name || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Tanggal & Lokasi</span>
+                      <span className="font-semibold text-slate-700">{org.organizer_event_date} &bull; {org.organizer_event_location}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Status Persetujuan</span>
+                      <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold uppercase inline-block">
+                        {org.approval_status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : activeTab === 'staff' ? (
         /* Staff Management Section */
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-xs">

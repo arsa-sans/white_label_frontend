@@ -16,26 +16,31 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Initialize state from localStorage if store not yet hydrated
+    const storedToken = typeof window !== 'undefined' ? localStorage.getItem('wl_token') : null;
+    const storedUserStr = typeof window !== 'undefined' ? localStorage.getItem('wl_user') : null;
+    let storedUser = null;
+    try {
+      if (storedUserStr) storedUser = JSON.parse(storedUserStr);
+    } catch {}
 
-  useEffect(() => {
-    if (!mounted) return;
-
-    // Wait until hydration complete before enforcing route protection
-    if (token && !isHydrated && !user) return;
+    const currentUser = user || storedUser;
+    const currentToken = token || storedToken;
 
     if (pathname.startsWith('/dashboard')) {
-      if (!token || (user && user.role !== 'organizer' && user.role !== 'admin')) {
+      if (!currentToken) {
+        router.replace('/events');
+      } else if (currentUser && currentUser.role !== 'organizer' && currentUser.role !== 'admin') {
         router.replace('/events');
       }
     }
 
     if (pathname.startsWith('/my-tickets') || pathname.startsWith('/payment-methods')) {
-      if (!token) {
+      if (!currentToken) {
         router.replace('/events');
       }
     }
-  }, [pathname, user, token, isHydrated, router, mounted]);
+  }, [pathname, user, token, router, mounted]);
 
   return <>{children}</>;
 }
