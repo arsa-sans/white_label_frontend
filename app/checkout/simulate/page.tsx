@@ -280,11 +280,17 @@ function SimulatePageInner() {
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         {/* Back button */}
         <button
-          onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-700 transition-colors"
+          onClick={() => {
+            if (window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/checkout');
+            }
+          }}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Kembali
+          <ArrowLeft className="w-4 h-4 text-slate-600" />
+          Kembali ke Checkout
         </button>
 
         {/* Header */}

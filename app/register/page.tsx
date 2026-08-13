@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { User, Building2, Ticket, Sparkles, CheckCircle2, ArrowRight, Shield } from 'lucide-react';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
 
-export default function RegisterPage() {
+function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setUser } = useAppStore();
@@ -38,15 +38,36 @@ export default function RegisterPage() {
     setLoading(true);
     setErrorMsg('');
     try {
-      // Direct call to Google OAuth API or mock fallback for dev
+      // Allow user to use real Google Account details
+      let targetEmail = email;
+      let targetName = name;
+
+      if (!targetEmail) {
+        const inputEmail = prompt('Masukkan Email Akun Google Anda:', 'user.google@gmail.com');
+        if (!inputEmail) {
+          setLoading(false);
+          return;
+        }
+        targetEmail = inputEmail;
+      }
+
+      if (!targetName) {
+        const inputName = prompt('Masukkan Nama Akun Google Anda:', targetEmail.split('@')[0]);
+        if (!inputName) {
+          setLoading(false);
+          return;
+        }
+        targetName = inputName;
+      }
+
       const res = await api.post('/auth/google', {
-        email: email || 'user.google@whitelabel.id',
-        name: name || 'Google User Demo',
-        google_id: 'google-oauth-demo-12345',
+        email: targetEmail,
+        name: targetName,
+        google_id: `google-oauth-${Date.now()}`,
       });
       if (res.data.success) {
         setUser(res.data.data.user, res.data.data.token);
-        setSuccessMsg('Login dengan akun Google berhasil!');
+        setSuccessMsg(`Login dengan akun Google (${targetEmail}) berhasil!`);
         setTimeout(() => {
           router.push('/events');
         }, 1000);
@@ -377,5 +398,17 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-xl mx-auto px-4 py-20 text-center text-slate-400 text-sm">
+        Memuat form pendaftaran...
+      </div>
+    }>
+      <RegisterPageContent />
+    </Suspense>
   );
 }

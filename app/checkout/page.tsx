@@ -71,9 +71,14 @@ export default function CheckoutPage() {
       );
 
       const orderData = orderRes.data.data;
+      const orderId = orderData?.order?.id || orderData?.id;
+
+      if (!orderId) {
+        throw new Error('Gagal mendapatkan Order ID dari server.');
+      }
 
       // 2. Simulate Payment Completion
-      const payRes = await api.post(`/payments/orders/${orderData.id}/pay`, {
+      const payRes = await api.post(`/payments/orders/${orderId}/pay`, {
         payment_method: paymentMethod,
       });
 
@@ -82,7 +87,8 @@ export default function CheckoutPage() {
         clearSeatSelection();
       }
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Proses pembayaran gagal. Coba lagi.');
+      const serverMsg = err.response?.data?.message || err.message;
+      setErrorMsg(serverMsg || 'Proses pembayaran gagal. Coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -136,10 +142,16 @@ export default function CheckoutPage() {
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       {/* Back Button */}
       <button
-        onClick={() => router.back()}
-        className="flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
+        onClick={() => {
+          if (activeEventId) {
+            router.push(`/event/${activeEventId}`);
+          } else {
+            router.back();
+          }
+        }}
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="w-4 h-4 text-slate-600" />
         Kembali ke Pemilihan Kursi
       </button>
 
