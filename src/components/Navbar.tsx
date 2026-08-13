@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Ticket, Wallet, QrCode, LayoutDashboard, LogIn, LogOut, User as UserIcon, Sparkles } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Ticket, Wallet, QrCode, LayoutDashboard, LogOut, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import api from '@/lib/api';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -11,18 +11,14 @@ import { segmentConfirmTemplates } from '@/lib/confirmPresets';
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, setUser, logout, setHydrated } = useAppStore();
   const confirm = useConfirm();
   const [mounted, setMounted] = useState(false);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     setMounted(true);
-    // Revalidate profile on initial load if token exists
     const token = localStorage.getItem('wl_token');
     const cachedUser = localStorage.getItem('wl_user');
     if (cachedUser && !user) {
@@ -50,23 +46,25 @@ export default function Navbar() {
     }
   }, [setUser, logout, setHydrated]);
 
-  const handleLogin = async (e?: React.FormEvent, customEmail?: string, customPass?: string) => {
-    if (e) e.preventDefault();
+  const handleGoogleSignIn = async () => {
     setLoading(true);
-    setErrorMsg('');
-
     try {
-      const res = await api.post('/auth/login', {
-        email: customEmail || email,
-        password: customPass || password,
+      const googleEmail = prompt('Masukkan Email Akun Google Anda:', 'user@gmail.com');
+      if (!googleEmail) { setLoading(false); return; }
+      const googleName = prompt('Masukkan Nama Lengkap Anda:', googleEmail.split('@')[0].replace(/[._]/g, ' '));
+      if (!googleName) { setLoading(false); return; }
+
+      const res = await api.post('/auth/google', {
+        email: googleEmail,
+        name: googleName,
+        google_id: `google-oauth-${Date.now()}`,
       });
 
       if (res.data.success) {
         setUser(res.data.data.user, res.data.data.token);
-        setIsAuthOpen(false);
       }
-    } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Login gagal. Periksa kembali email dan password.');
+    } catch {
+      // silently fail, user can try again
     } finally {
       setLoading(false);
     }
@@ -79,7 +77,6 @@ export default function Navbar() {
     }
   };
 
-  // Navigasi Berbasis Role (Hanya diproses jika sudah mounted untuk cegah hydration mismatch)
   const getNavLinks = () => {
     const links = [
       { href: '/', label: 'Beranda', icon: Sparkles },
@@ -110,7 +107,7 @@ export default function Navbar() {
     <>
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Tenant Logo & Brand */}
+          {/* Brand */}
           <Link href="/" className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-black text-lg shadow-md shadow-indigo-500/20">
               WL
@@ -166,172 +163,27 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/register"
-                  className="hidden sm:inline-flex px-3.5 py-2 rounded-xl text-xs font-bold border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-all"
-                >
-                  Register
-                </Link>
-                <button
-                  onClick={() => setIsAuthOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all"
-                >
-                  <LogIn className="w-4 h-4" />
-                  Sign In
-                </button>
-              </div>
+              <button
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all disabled:opacity-60"
+              >
+                {loading ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <path fill="currentColor" fillOpacity="0.9" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="currentColor" fillOpacity="0.75" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="currentColor" fillOpacity="0.6" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="currentColor" fillOpacity="0.85" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                )}
+                {loading ? 'Menghubungkan...' : 'Sign In dengan Google'}
+              </button>
             )}
           </div>
         </div>
       </header>
-
-      {/* Auth Modal */}
-      {isAuthOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <UserIcon className="w-5 h-5 text-indigo-600" />
-                Sign In to Platform
-              </h2>
-              <button
-                onClick={() => setIsAuthOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            {errorMsg && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
-                {errorMsg}
-              </div>
-            )}
-
-            {/* Google OAuth Quick Button */}
-            <div className="mb-4">
-              <button
-                type="button"
-                onClick={async () => {
-                  setLoading(true);
-                  setErrorMsg('');
-                  try {
-                    // Prompt user for real Google Account email & name if not logged via GSI
-                    const googleEmail = prompt('Masukkan Email Akun Google Anda:', email || 'user@gmail.com');
-                    if (!googleEmail) {
-                      setLoading(false);
-                      return;
-                    }
-                    const googleName = prompt('Masukkan Nama Akun Google Anda:', googleEmail.split('@')[0]);
-                    if (!googleName) {
-                      setLoading(false);
-                      return;
-                    }
-
-                    const res = await api.post('/auth/google', {
-                      email: googleEmail,
-                      name: googleName,
-                      google_id: `google-oauth-${Date.now()}`,
-                    });
-
-                    if (res.data.success) {
-                      setUser(res.data.data.user, res.data.data.token);
-                      setIsAuthOpen(false);
-                    }
-                  } catch (err: any) {
-                    setErrorMsg(err.response?.data?.message || 'Login dengan akun Google gagal.');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                disabled={loading}
-                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 font-bold text-xs text-slate-700 flex items-center justify-center gap-3 transition-all shadow-xs"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                </svg>
-                Sign In Dengan Akun Google
-              </button>
-
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-slate-200"></div>
-                <span className="flex-shrink mx-3 text-[10px] uppercase font-bold text-slate-400">Atau Manual Email</span>
-                <div className="flex-grow border-t border-slate-200"></div>
-              </div>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="budi@gmail.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-colors"
-              >
-                {loading ? 'Authenticating...' : 'Sign In'}
-              </button>
-            </form>
-
-            <div className="mt-5 pt-3 border-t border-slate-200">
-              <span className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                Quick Demo Logins (One-Click):
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleLogin(undefined, 'budi@gmail.com', 'Visitor@2026!')}
-                  className="p-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-[11px] font-bold text-indigo-700 transition-colors flex items-center justify-center gap-1"
-                >
-                  👤 Visitor
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLogin(undefined, 'gate@soundwave.com', 'GateStaff@2026!')}
-                  className="p-2 rounded-xl border border-cyan-200 bg-cyan-50 hover:bg-cyan-100 text-[11px] font-bold text-cyan-700 transition-colors flex items-center justify-center gap-1"
-                >
-                  📱 Gate Staff
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLogin(undefined, 'organizer@soundwave.com', 'Organizer@2026!')}
-                  className="p-2 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-[11px] font-bold text-purple-700 transition-colors flex items-center justify-center gap-1"
-                >
-                  👑 Organizer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLogin(undefined, 'admin@whitelabel.id', 'Admin@2026!')}
-                  className="p-2 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-[11px] font-bold text-amber-800 transition-colors flex items-center justify-center gap-1"
-                >
-                  ⚡ Admin
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
