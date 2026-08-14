@@ -8,45 +8,48 @@ export interface User {
   tenant_id: string;
 }
 
-export interface Seat {
+export interface TicketTier {
   id: string;
   event_id: string;
-  row: string;
-  number: number;
-  category: 'VIP' | 'CAT 1' | 'CAT 2' | 'FESTIVAL';
+  name: string;
+  description: string;
   price: number;
-  status: 'available' | 'locked' | 'sold';
+  quota: number;
+  sold: number;
+  color: string;
+  sort_order: number;
+  available?: number;
+}
+
+export interface CartItem {
+  tier_id: string;
+  tier_name: string;
+  event_id: string;
+  event_name: string;
+  unit_price: number;
+  quantity: number;
 }
 
 interface AppState {
   user: User | null;
   token: string | null;
   isHydrated: boolean;
-  selectedSeats: Seat[];
+  cart: CartItem[];
   activeEventId: string | null;
   setUser: (user: User | null, token?: string) => void;
   logout: () => void;
   setHydrated: (hydrated: boolean) => void;
-  toggleSeatSelection: (seat: Seat) => void;
-  clearSeatSelection: () => void;
+  updateCartQuantity: (item: Omit<CartItem, 'quantity'>, delta: number) => void;
+  setCartItemQuantity: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
+  clearCart: () => void;
   setActiveEventId: (eventId: string | null) => void;
 }
-
-const getInitialUser = (): User | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const cached = localStorage.getItem('wl_user');
-    return cached ? JSON.parse(cached) : null;
-  } catch {
-    return null;
-  }
-};
 
 export const useAppStore = create<AppState>((set) => ({
   user: null,
   token: null,
   isHydrated: false,
-  selectedSeats: [],
+  cart: [],
   activeEventId: null,
 
   setUser: (user, token) => {
@@ -64,27 +67,49 @@ export const useAppStore = create<AppState>((set) => ({
   logout: () => {
     localStorage.removeItem('wl_token');
     localStorage.removeItem('wl_user');
-    set({ user: null, token: null, selectedSeats: [], isHydrated: true });
+    set({ user: null, token: null, cart: [], isHydrated: true });
   },
 
   setHydrated: (isHydrated) => set({ isHydrated }),
 
-  toggleSeatSelection: (seat) =>
+  updateCartQuantity: (item, delta) =>
     set((state) => {
-      const exists = state.selectedSeats.some((s) => s.id === seat.id);
-      if (exists) {
-        return { selectedSeats: state.selectedSeats.filter((s) => s.id !== seat.id) };
-      } else {
-        return { selectedSeats: [...state.selectedSeats, seat] };
+      const existing = state.cart.find((c) => c.tier_id === item.tier_id);
+      if (!existing) {
+        if (delta <= 0) return state;
+        return { cart: [...state.cart, { ...item, quantity: delta }] };
       }
+      const newQty = existing.quantity + delta;
+      if (newQty <= 0) {
+        return { cart: state.cart.filter((c) => c.tier_id !== item.tier_id) };
+      }
+      return {
+        cart: state.cart.map((c) =>
+          c.tier_id === item.tier_id ? { ...c, quantity: newQty } : c
+        ),
+      };
     }),
 
-  clearSeatSelection: () => set({ selectedSeats: [] }),
+  setCartItemQuantity: (item, quantity) =>
+    set((state) => {
+      if (quantity <= 0) {
+        return { cart: state.cart.filter((c) => c.tier_id !== item.tier_id) };
+      }
+      const existing = state.cart.find((c) => c.tier_id === item.tier_id);
+      if (existing) {
+        return {
+          cart: state.cart.map((c) =>
+            c.tier_id === item.tier_id ? { ...c, quantity } : c
+          ),
+        };
+      }
+      return { cart: [...state.cart, { ...item, quantity }] };
+    }),
+
+  clearCart: () => set({ cart: [] }),
   setActiveEventId: (activeEventId) => set({ activeEventId }),
 }));
 
 export const isOrganizer = (user: User | null) => user?.role === 'organizer' || user?.role === 'admin';
 export const isVisitor = (user: User | null) => user?.role === 'visitor';
 export const isGateStaff = (user: User | null) => user?.role === 'gate_staff';
-
-

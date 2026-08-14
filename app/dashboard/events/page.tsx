@@ -1,25 +1,23 @@
 'use client';
 
 /**
- * /dashboard/events — Organizer Event Management
+ * /dashboard/events — Organizer Event Management (Tier Based)
  *
  * Accessible: organizer, admin only.
  * Features:
- *  - List organizer's own events with live stats (sold/available/%)
- *  - Create event modal (full form)
- *  - Edit event modal (pre-filled)
- *  - Delete event (confirm dialog)
+ *  - List organizer's own events with live tier stats (quota/sold/%)
+ *  - Create event modal (full form including venue layout description)
+ *  - Edit event modal
+ *  - Delete event
  *  - Publish / Unpublish toggle
- *  - Seat Category Manager per event (inline drawer)
- *  - Regenerate seat layout button
- *  - Banner URL update
+ *  - Ticket Tier Manager per event (inline drawer)
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Plus, Pencil, Trash2, Eye, EyeOff, RefreshCw, Calendar, MapPin,
-  Users, Ticket, BarChart2, ChevronRight, Layers, ImageIcon, AlertCircle,
+  Plus, Pencil, Trash2, Eye, EyeOff, Calendar, MapPin,
+  Ticket, Layers, ImageIcon, AlertCircle,
   CheckCircle, XCircle, Loader2, Settings2, ArrowLeft
 } from 'lucide-react';
 import api from '@/lib/api';
@@ -41,6 +39,7 @@ interface EventItem {
   category: string;
   location: string;
   venue_name: string;
+  venue_layout_info?: string;
   start_date: string;
   end_date: string;
   capacity: number;
@@ -51,14 +50,16 @@ interface EventItem {
   stats: EventStats;
 }
 
-interface SeatCategory {
+interface TicketTier {
   id: string;
   event_id: string;
   name: string;
+  description: string;
   price: number;
-  rows: string[];
-  cols: number;
+  quota: number;
+  sold: number;
   color: string;
+  sort_order: number;
 }
 
 interface EventFormData {
@@ -67,6 +68,7 @@ interface EventFormData {
   category: string;
   location: string;
   venue_name: string;
+  venue_layout_info: string;
   start_date: string;
   end_date: string;
   capacity: string;
@@ -74,27 +76,27 @@ interface EventFormData {
   status: 'draft' | 'published';
 }
 
-interface CategoryFormData {
+interface TierFormData {
   name: string;
+  description: string;
   price: string;
-  rowsRaw: string; // comma-separated, e.g. "A,B,C"
-  cols: string;
+  quota: string;
   color: string;
+  sort_order: string;
 }
 
 const BLANK_FORM: EventFormData = {
   name: '', description: '', category: 'Concert', location: '',
-  venue_name: '', start_date: '', end_date: '', capacity: '0',
+  venue_name: '', venue_layout_info: '', start_date: '', end_date: '', capacity: '0',
   banner_url: '', status: 'draft',
 };
 
-const BLANK_CAT: CategoryFormData = {
-  name: '', price: '', rowsRaw: '', cols: '', color: '#6366F1',
+const BLANK_TIER: TierFormData = {
+  name: '', description: '', price: '', quota: '', color: '#7C3AED', sort_order: '1',
 };
 
 const CATEGORIES = ['Concert', 'Conference', 'Festival', 'Sport', 'Exhibition', 'Workshop', 'General'];
 
-/* ─── Utility Components ──────────────────────────────────── */
 function Toast({ msg, type, onClose }: { msg: string; type: 'success' | 'error'; onClose: () => void }) {
   useEffect(() => {
     const t = setTimeout(onClose, 3500);
@@ -149,6 +151,7 @@ function EventFormModal({
           category: event.category,
           location: event.location,
           venue_name: event.venue_name,
+          venue_layout_info: event.venue_layout_info || '',
           start_date: event.start_date.slice(0, 16),
           end_date: event.end_date.slice(0, 16),
           capacity: String(event.capacity),
@@ -198,7 +201,7 @@ function EventFormModal({
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-5">
           <h2 className="text-lg font-black text-white">{isEdit ? '✏️ Edit Event' : '✨ Buat Event Baru'}</h2>
           <p className="text-indigo-200 text-xs mt-0.5 font-medium">
-            {isEdit ? 'Update detail event Anda' : 'Isi form berikut untuk membuat event baru'}
+            {isEdit ? 'Update detail event Anda' : 'Isi form berikut untuk membuat event baru (tier tiket default akan dibuat otomatis)'}
           </p>
         </div>
 
@@ -210,7 +213,6 @@ function EventFormModal({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Name */}
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Nama Event *</label>
               <input value={form.name} onChange={(e) => set('name', e.target.value)}
@@ -218,7 +220,6 @@ function EventFormModal({
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
-            {/* Category */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Kategori</label>
               <select value={form.category} onChange={(e) => set('category', e.target.value)}
@@ -227,7 +228,6 @@ function EventFormModal({
               </select>
             </div>
 
-            {/* Status */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Status</label>
               <select value={form.status} onChange={(e) => set('status', e.target.value as 'draft' | 'published')}
@@ -237,7 +237,6 @@ function EventFormModal({
               </select>
             </div>
 
-            {/* Location */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Lokasi *</label>
               <input value={form.location} onChange={(e) => set('location', e.target.value)}
@@ -245,7 +244,6 @@ function EventFormModal({
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
-            {/* Venue */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Nama Venue</label>
               <input value={form.venue_name} onChange={(e) => set('venue_name', e.target.value)}
@@ -253,28 +251,25 @@ function EventFormModal({
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
-            {/* Start date */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Mulai *</label>
               <input type="datetime-local" value={form.start_date} onChange={(e) => set('start_date', e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
-            {/* End date */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Selesai *</label>
               <input type="datetime-local" value={form.end_date} onChange={(e) => set('end_date', e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
-            {/* Capacity */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Kapasitas (override)</label>
-              <input type="number" min="0" value={form.capacity} onChange={(e) => set('capacity', e.target.value)}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Tata Letak Area Penonton &amp; Panggung</label>
+              <input value={form.venue_layout_info} onChange={(e) => set('venue_layout_info', e.target.value)}
+                placeholder="Misal: Panggung di titik Utara. VIP jarak 0-10m, CAT 1 10-25m, Festival di belakang."
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
-            {/* Banner URL */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Banner URL</label>
               <input value={form.banner_url} onChange={(e) => set('banner_url', e.target.value)}
@@ -282,9 +277,8 @@ function EventFormModal({
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
 
-            {/* Description */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Deskripsi</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Deskripsi Event</label>
               <textarea value={form.description} onChange={(e) => set('description', e.target.value)}
                 rows={3} placeholder="Deskripsi singkat event Anda..."
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
@@ -308,113 +302,92 @@ function EventFormModal({
   );
 }
 
-/* ─── Seat Category Drawer ────────────────────────────────── */
-function SeatCategoryDrawer({ event, onClose }: { event: EventItem; onClose: () => void }) {
+/* ─── Ticket Tier Manager Drawer ───────────────────────────── */
+function TicketTierDrawer({ event, onClose }: { event: EventItem; onClose: () => void }) {
   const confirm = useConfirm();
-  const [categories, setCategories] = useState<SeatCategory[]>([]);
+  const [tiers, setTiers] = useState<TicketTier[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState<CategoryFormData>(BLANK_CAT);
+  const [form, setForm] = useState<TierFormData>(BLANK_TIER);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  const loadCats = useCallback(async () => {
+  const loadTiers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/events/${event.id}/seat-categories`);
-      if (res.data.success) setCategories(res.data.data);
+      const res = await api.get(`/events/${event.id}/tiers`);
+      if (res.data.success) setTiers(res.data.data);
     } finally {
       setLoading(false);
     }
   }, [event.id]);
 
-  useEffect(() => { loadCats(); }, [loadCats]);
+  useEffect(() => { loadTiers(); }, [loadTiers]);
 
-  const setF = (k: keyof CategoryFormData, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const setF = (k: keyof TierFormData, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const handleStartEdit = (cat: SeatCategory) => {
-    setEditingId(cat.id);
+  const handleStartEdit = (tier: TicketTier) => {
+    setEditingId(tier.id);
     setForm({
-      name: cat.name,
-      price: String(cat.price),
-      rowsRaw: cat.rows.join(','),
-      cols: String(cat.cols),
-      color: cat.color,
+      name: tier.name,
+      description: tier.description || '',
+      price: String(tier.price),
+      quota: String(tier.quota),
+      color: tier.color,
+      sort_order: String(tier.sort_order),
     });
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setForm(BLANK_CAT);
+    setForm(BLANK_TIER);
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.price || !form.rowsRaw || !form.cols) {
-      setToast({ msg: 'Semua field wajib diisi.', type: 'error' });
+    if (!form.name || !form.price || !form.quota) {
+      setToast({ msg: 'Nama, harga, dan kuota wajib diisi.', type: 'error' });
       return;
     }
     setSaving(true);
     try {
       const payload = {
-        catId: editingId || undefined,
+        tierId: editingId || undefined,
         name: form.name,
+        description: form.description,
         price: Number(form.price),
-        rows: form.rowsRaw.split(',').map((r) => r.trim().toUpperCase()).filter(Boolean),
-        cols: Number(form.cols),
+        quota: Number(form.quota),
         color: form.color,
+        sort_order: Number(form.sort_order),
       };
-      const res = await api.post(`/events/${event.id}/seat-categories`, payload);
+      const res = await api.post(`/events/${event.id}/tiers`, payload);
       if (res.data.success) {
-        setToast({ msg: editingId ? 'Kategori diperbarui.' : 'Kategori ditambahkan.', type: 'success' });
+        setToast({ msg: editingId ? 'Tier tiket diperbarui.' : 'Tier tiket ditambahkan.', type: 'success' });
         setEditingId(null);
-        setForm(BLANK_CAT);
-        loadCats();
+        setForm(BLANK_TIER);
+        loadTiers();
       }
     } catch {
-      setToast({ msg: 'Gagal menyimpan kategori.', type: 'error' });
+      setToast({ msg: 'Gagal menyimpan tier tiket.', type: 'error' });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (catId: string, catName: string) => {
+  const handleDelete = async (tierId: string, tierName: string) => {
     const ok = await confirm({
-      title: `Hapus Kategori "${catName}"?`,
-      message: 'Kursi di kategori ini akan dihapus dari layout. Tiket yang sudah terjual tidak terpengaruh.',
-      confirmText: 'Hapus Kategori',
+      title: `Hapus Tier Tiket "${tierName}"?`,
+      message: 'Tier ini akan dihapus dari event. Tiket yang sudah terjual tidak terpengaruh.',
+      confirmText: 'Hapus Tier',
       cancelText: 'Batal',
       variant: 'danger',
     });
     if (!ok) return;
     try {
-      await api.delete(`/events/${event.id}/seat-categories/${catId}`);
-      setToast({ msg: 'Kategori dihapus.', type: 'success' });
-      loadCats();
+      await api.delete(`/events/${event.id}/tiers/${tierId}`);
+      setToast({ msg: 'Tier tiket dihapus.', type: 'success' });
+      loadTiers();
     } catch {
       setToast({ msg: 'Gagal menghapus.', type: 'error' });
-    }
-  };
-
-  const handleRegenerate = async () => {
-    const ok = await confirm({
-      title: 'Regenerasi Layout Kursi?',
-      message: 'Semua kursi available & locked akan di-reset ulang sesuai kategori. Kursi yang sudah terjual tetap aman.',
-      confirmText: 'Regenerasi Sekarang',
-      cancelText: 'Batal',
-      variant: 'warning',
-    });
-    if (!ok) return;
-    setRegenerating(true);
-    try {
-      const res = await api.post(`/events/${event.id}/regenerate-seats`);
-      if (res.data.success) {
-        setToast({ msg: `Layout di-regenerasi: ${res.data.data.total_seats} kursi total.`, type: 'success' });
-      }
-    } catch {
-      setToast({ msg: 'Gagal regenerasi.', type: 'error' });
-    } finally {
-      setRegenerating(false);
     }
   };
 
@@ -428,7 +401,7 @@ function SeatCategoryDrawer({ event, onClose }: { event: EventItem; onClose: () 
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black text-white flex items-center gap-2">
-                <Layers className="w-5 h-5" /> Seat Category Manager
+                <Layers className="w-5 h-5" /> Pengelolaan Tier Tiket &amp; Tata Letak
               </h2>
               <p className="text-violet-200 text-xs mt-0.5 font-medium truncate">{event.name}</p>
             </div>
@@ -437,80 +410,83 @@ function SeatCategoryDrawer({ event, onClose }: { event: EventItem; onClose: () 
         </div>
 
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
-          {/* Category List */}
+          {/* Tier List */}
           {loading ? (
-            <div className="text-center py-8 text-slate-400 text-sm animate-pulse">Memuat kategori...</div>
+            <div className="text-center py-8 text-slate-400 text-sm animate-pulse">Memuat tier tiket...</div>
           ) : (
             <div className="space-y-2">
-              {categories.map((cat) => (
-                <div key={cat.id} className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white transition-colors">
-                  <div className="w-3.5 h-3.5 rounded-full shrink-0 border-2 border-white shadow-sm" style={{ backgroundColor: cat.color }} />
+              {tiers.map((tier) => (
+                <div key={tier.id} className="flex items-center gap-3 p-3.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white transition-colors">
+                  <div className="w-4 h-4 rounded-full shrink-0 border-2 border-white shadow-sm" style={{ backgroundColor: tier.color }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">{cat.name}</span>
+                      <span className="text-sm font-bold text-slate-900">{tier.name}</span>
                       <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
-                        Baris: {cat.rows.join(', ')} · {cat.cols} kursi/baris
+                        Terjual: {tier.sold} / Kuota: {tier.quota}
                       </span>
                     </div>
-                    <span className="text-xs text-indigo-700 font-bold">
-                      Rp {cat.price.toLocaleString('id-ID')}
+                    {tier.description && (
+                      <p className="text-xs text-slate-500 truncate mt-0.5">{tier.description}</p>
+                    )}
+                    <span className="text-xs text-indigo-700 font-extrabold mt-0.5 block">
+                      Rp {tier.price.toLocaleString('id-ID')}
                     </span>
                   </div>
                   <div className="flex gap-1.5 shrink-0">
-                    <button onClick={() => handleStartEdit(cat)}
-                      className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors">
+                    <button onClick={() => handleStartEdit(tier)}
+                      className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => handleDelete(cat.id, cat.name)}
-                      className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors">
+                    <button onClick={() => handleDelete(tier.id, tier.name)}
+                      className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
               ))}
-              {categories.length === 0 && (
-                <div className="text-center py-6 text-slate-400 text-sm">Belum ada kategori kursi.</div>
+              {tiers.length === 0 && (
+                <div className="text-center py-6 text-slate-400 text-sm">Belum ada tier tiket.</div>
               )}
             </div>
           )}
 
-          {/* Category Form */}
+          {/* Tier Form */}
           <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-3">
             <h3 className="text-xs font-black uppercase tracking-wider text-indigo-800">
-              {editingId ? '✏️ Edit Kategori' : '+ Tambah Kategori Baru'}
+              {editingId ? '✏️ Edit Tier Tiket' : '+ Tambah Tier Tiket Baru'}
             </h3>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Nama Kategori</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nama Tier (Zona Penonton)</label>
                 <input value={form.name} onChange={(e) => setF('name', e.target.value)}
-                  placeholder="VIP / CAT 1 / FESTIVAL"
+                  placeholder="VIP (0-10m dari panggung)"
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Harga (Rp)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Harga Tiket (Rp)</label>
                 <input type="number" min="0" value={form.price} onChange={(e) => setF('price', e.target.value)}
-                  placeholder="1500000"
+                  placeholder="1800000"
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Baris (pisah koma)</label>
-                <input value={form.rowsRaw} onChange={(e) => setF('rowsRaw', e.target.value)}
-                  placeholder="A, B, C"
+                <label className="block text-xs font-bold text-slate-700 mb-1">Kuota Tiket</label>
+                <input type="number" min="1" value={form.quota} onChange={(e) => setF('quota', e.target.value)}
+                  placeholder="200"
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Kursi per Baris</label>
-                <input type="number" min="1" value={form.cols} onChange={(e) => setF('cols', e.target.value)}
-                  placeholder="10"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Warna</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Warna Badge</label>
                 <div className="flex items-center gap-2">
                   <input type="color" value={form.color} onChange={(e) => setF('color', e.target.value)}
                     className="w-10 h-9 rounded-lg border border-slate-300 cursor-pointer" />
                   <span className="text-xs font-mono text-slate-600">{form.color}</span>
                 </div>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">Deskripsi Zona &amp; Jarak dari Panggung</label>
+                <input value={form.description} onChange={(e) => setF('description', e.target.value)}
+                  placeholder="Terdiri dari berdiri paling depan panggung utama, termasuk Fast-Track Gate."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
             </div>
             <div className="flex gap-2">
@@ -523,17 +499,10 @@ function SeatCategoryDrawer({ event, onClose }: { event: EventItem; onClose: () 
               <button onClick={handleSave} disabled={saving}
                 className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/15">
                 {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {saving ? 'Menyimpan...' : editingId ? 'Update Kategori' : 'Tambah Kategori'}
+                {saving ? 'Menyimpan...' : editingId ? 'Update Tier' : 'Tambah Tier Tiket'}
               </button>
             </div>
           </div>
-
-          {/* Regenerate button */}
-          <button onClick={handleRegenerate} disabled={regenerating}
-            className="w-full py-2.5 rounded-xl border-2 border-dashed border-violet-300 text-violet-700 text-xs font-bold hover:bg-violet-50 transition-colors flex items-center justify-center gap-2">
-            {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {regenerating ? 'Meregenerasi layout...' : 'Regenerasi Layout Kursi dari Kategori'}
-          </button>
         </div>
       </div>
     </div>
@@ -546,13 +515,13 @@ function EventCard({
   onEdit,
   onDelete,
   onToggleStatus,
-  onManageSeats,
+  onManageTiers,
 }: {
   event: EventItem;
   onEdit: () => void;
   onDelete: () => void;
   onToggleStatus: () => void;
-  onManageSeats: () => void;
+  onManageTiers: () => void;
 }) {
   const isPublished = event.status === 'published';
   const dateStr = new Date(event.start_date).toLocaleDateString('id-ID', {
@@ -594,7 +563,7 @@ function EventCard({
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
             <div className="text-xs font-black text-slate-900">{event.stats.total_seats}</div>
-            <div className="text-[9px] font-bold uppercase text-slate-400">Total</div>
+            <div className="text-[9px] font-bold uppercase text-slate-400">Kuota</div>
           </div>
           <div className="bg-emerald-50 rounded-xl p-2 border border-emerald-100">
             <div className="text-xs font-black text-emerald-800">{event.stats.sold_seats}</div>
@@ -602,7 +571,7 @@ function EventCard({
           </div>
           <div className="bg-indigo-50 rounded-xl p-2 border border-indigo-100">
             <div className="text-xs font-black text-indigo-800">{event.stats.sold_percent}%</div>
-            <div className="text-[9px] font-bold uppercase text-indigo-600">Occupancy</div>
+            <div className="text-[9px] font-bold uppercase text-indigo-600">Terisi</div>
           </div>
         </div>
 
@@ -621,9 +590,9 @@ function EventCard({
 
         {/* Actions */}
         <div className="flex gap-2 pt-1">
-          <button onClick={onManageSeats}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 text-xs font-bold hover:bg-violet-100 transition-colors">
-            <Layers className="w-3.5 h-3.5" /> Seat Map
+          <button onClick={onManageTiers}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 text-xs font-bold hover:bg-violet-100 transition-colors flex-1 justify-center">
+            <Layers className="w-3.5 h-3.5" /> Tier Tiket
           </button>
           <button onClick={onToggleStatus}
             title={isPublished ? 'Unpublish' : 'Publish'}
@@ -659,10 +628,9 @@ export default function OrganizerEventsPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'published'>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
-  const [managingSeatsFor, setManagingSeatsFor] = useState<EventItem | null>(null);
+  const [managingTiersFor, setManagingTiersFor] = useState<EventItem | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  // Guard: redirect if not organizer/admin
   useEffect(() => {
     if (user && user.role !== 'organizer' && user.role !== 'admin') {
       router.replace('/');
@@ -692,12 +660,10 @@ export default function OrganizerEventsPage() {
         next[idx] = { ...next[idx], ...saved };
         return next;
       }
-      // new event — add with empty stats
-      return [{ ...saved, stats: { total_seats: 0, sold_seats: 0, available_seats: 0, sold_percent: 0 } }, ...prev];
+      return [{ ...saved, stats: { total_seats: 4700, sold_seats: 0, available_seats: 4700, sold_percent: 0 } }, ...prev];
     });
     setToast({ msg: editingEvent ? 'Event berhasil diperbarui!' : 'Event baru berhasil dibuat!', type: 'success' });
     setEditingEvent(null);
-    // Reload to get fresh stats
     setTimeout(loadEvents, 300);
   };
 
@@ -725,7 +691,7 @@ export default function OrganizerEventsPage() {
       title: toPublish ? `Publish Event "${event.name}"?` : `Unpublish Event "${event.name}"?`,
       message: toPublish
         ? 'Event akan terlihat oleh publik dan bisa dibeli tiketnya.'
-        : 'Event akan disembunyikan dari katalog publik. Tiket yang sudah terjual tidak terpengaruh.',
+        : 'Event akan disembunyikan dari katalog publik.',
       confirmText: toPublish ? 'Publish Sekarang' : 'Unpublish',
       cancelText: 'Batal',
       variant: toPublish ? 'info' : 'warning',
@@ -744,18 +710,7 @@ export default function OrganizerEventsPage() {
     }
   };
 
-  // Not logged in or wrong role
-  if (!user) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-        <h1 className="text-xl font-black text-slate-900">Login Diperlukan</h1>
-        <p className="text-sm text-slate-500 mt-1">Silakan login sebagai <strong>organizer</strong> untuk mengakses halaman ini.</p>
-      </div>
-    );
-  }
-
-  if (user.role !== 'organizer' && user.role !== 'admin') {
+  if (!user || (user.role !== 'organizer' && user.role !== 'admin')) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
         <XCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
@@ -777,8 +732,8 @@ export default function OrganizerEventsPage() {
           onSaved={handleEventSaved}
         />
       )}
-      {managingSeatsFor && (
-        <SeatCategoryDrawer event={managingSeatsFor} onClose={() => setManagingSeatsFor(null)} />
+      {managingTiersFor && (
+        <TicketTierDrawer event={managingTiersFor} onClose={() => setManagingTiersFor(null)} />
       )}
 
       {/* Header */}
@@ -789,92 +744,60 @@ export default function OrganizerEventsPage() {
               className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">
               <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
             </button>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-xs font-bold text-slate-800">Manajemen Event</span>
+            <span className="text-slate-300">•</span>
+            <span className="text-xs font-bold text-slate-800">Pengelolaan Event</span>
           </div>
           <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
             <Settings2 className="w-6 h-6 text-indigo-600" />
-            Manajemen Event
+            Pengelolaan Event (CRUD Event)
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Buat, edit, dan kelola event beserta seat map dan kategori harga.
+            Buat event baru, atur tata letak area penonton, dan kelola tier tiket berdasarkan jarak panggung.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button onClick={loadEvents}
-            className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors">
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => { setEditingEvent(null); setShowForm(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all"
-          >
-            <Plus className="w-4 h-4" /> Buat Event
-          </button>
-        </div>
+        <button onClick={() => { setEditingEvent(null); setShowForm(true); }}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-indigo-600 text-white font-extrabold text-xs hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all">
+          <Plus className="w-4 h-4" /> Buat Event Baru
+        </button>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-        {(['all', 'published', 'draft'] as const).map((s) => (
-          <button key={s} onClick={() => setFilterStatus(s)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              filterStatus === s ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-            }`}>
-            {s === 'all' ? 'Semua' : s.charAt(0).toUpperCase() + s.slice(1)}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        {(['all', 'published', 'draft'] as const).map((st) => (
+          <button
+            key={st}
+            onClick={() => setFilterStatus(st)}
+            className={`px-4 py-1.5 rounded-xl text-xs font-bold capitalize transition-colors ${
+              filterStatus === st
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+            }`}
+          >
+            {st === 'all' ? 'Semua Event' : st}
           </button>
-        ))}
-      </div>
-
-      {/* Stats Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Event', value: events.length, icon: BarChart2, color: 'bg-indigo-50 text-indigo-700' },
-          { label: 'Published', value: events.filter((e) => e.status === 'published').length, icon: Eye, color: 'bg-emerald-50 text-emerald-700' },
-          { label: 'Draft', value: events.filter((e) => e.status === 'draft').length, icon: Pencil, color: 'bg-amber-50 text-amber-700' },
-          {
-            label: 'Total Tiket Terjual',
-            value: events.reduce((acc, e) => acc + e.stats.sold_seats, 0),
-            icon: Ticket,
-            color: 'bg-violet-50 text-violet-700',
-          },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3 shadow-xs">
-            <div className={`p-2.5 rounded-xl ${color}`}><Icon className="w-4 h-4" /></div>
-            <div>
-              <div className="text-xl font-black text-slate-900">{value}</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
-            </div>
-          </div>
         ))}
       </div>
 
       {/* Event Grid */}
       {loading ? (
-        <div className="text-center py-20 text-slate-400 text-sm animate-pulse font-medium">Memuat events...</div>
+        <div className="text-center py-20 text-slate-400 text-sm animate-pulse font-medium">Memuat event Anda...</div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-3xl">
-          <BarChart2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-slate-600">Belum ada event</h3>
-          <p className="text-sm text-slate-400 mt-1 mb-4">Mulai dengan membuat event pertama Anda.</p>
-          <button
-            onClick={() => { setEditingEvent(null); setShowForm(true); }}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-md transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Buat Event Pertama
-          </button>
+        <div className="text-center py-20 bg-white rounded-3xl border border-slate-200 p-8 space-y-3">
+          <Ticket className="w-10 h-10 text-slate-300 mx-auto" />
+          <h3 className="text-base font-bold text-slate-800">Belum Ada Event</h3>
+          <p className="text-xs text-slate-500">Klik tombol "Buat Event Baru" di atas untuk menambahkan event pertama Anda.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((event) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map((evt) => (
             <EventCard
-              key={event.id}
-              event={event}
-              onEdit={() => { setEditingEvent(event); setShowForm(true); }}
-              onDelete={() => handleDelete(event)}
-              onToggleStatus={() => handleToggleStatus(event)}
-              onManageSeats={() => setManagingSeatsFor(event)}
+              key={evt.id}
+              event={evt}
+              onEdit={() => { setEditingEvent(evt); setShowForm(true); }}
+              onDelete={() => handleDelete(evt)}
+              onToggleStatus={() => handleToggleStatus(evt)}
+              onManageTiers={() => setManagingTiersFor(evt)}
             />
           ))}
         </div>

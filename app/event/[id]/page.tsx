@@ -2,11 +2,10 @@
 
 import React, { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, MapPin, Ticket, Lock, Check, ArrowRight } from 'lucide-react';
+import { Calendar, MapPin, Ticket, Plus, Minus, ArrowRight, Info, Layers, CheckCircle2 } from 'lucide-react';
 import api from '@/lib/api';
-import { useAppStore, Seat } from '@/lib/store';
+import { useAppStore, TicketTier } from '@/lib/store';
 import { useConfirm } from '@/hooks/useConfirm';
-import { segmentConfirmTemplates } from '@/lib/confirmPresets';
 
 interface EventDetail {
   id: string;
@@ -15,6 +14,7 @@ interface EventDetail {
   description: string;
   location: string;
   venue_name: string;
+  venue_layout_info?: string;
   start_date: string;
   end_date: string;
   capacity: number;
@@ -27,22 +27,20 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const router = useRouter();
   const confirm = useConfirm();
 
-  const { user, selectedSeats, toggleSeatSelection, setActiveEventId } = useAppStore();
+  const { user, cart, updateCartQuantity, setActiveEventId } = useAppStore();
 
   const [event, setEvent] = useState<EventDetail | null>(null);
-  const [seats, setSeats] = useState<Seat[]>([]);
+  const [tiers, setTiers] = useState<TicketTier[]>([]);
   const [loading, setLoading] = useState(true);
-  const [locking, setLocking] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     setActiveEventId(eventId);
     fetchData();
 
-    // Auto-refresh seat status every 10 seconds for real-time seat availability
     const interval = setInterval(() => {
       fetchData(true);
-    }, 10000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [eventId]);
@@ -50,29 +48,41 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const fetchData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [evtRes, seatRes] = await Promise.all([
+      const [evtRes, tierRes] = await Promise.all([
         api.get(`/events/${eventId}`),
-        api.get(`/events/${eventId}/seats`),
+        api.get(`/events/${eventId}/tiers`),
       ]);
 
       if (evtRes.data.success) {
         setEvent(evtRes.data.data);
       }
-      if (seatRes.data.success) {
-        setSeats(seatRes.data.data.seats);
+      if (tierRes.data.success) {
+        setTiers(tierRes.data.data);
       }
     } catch (err: any) {
       if (!isBackground) {
-        setErrorMsg('Gagal memuat detail event dan tata letak kursi.');
+        setErrorMsg('Gagal memuat detail event dan tier tiket.');
       }
     } finally {
       if (!isBackground) setLoading(false);
     }
   };
 
-  const handleSeatClick = (seat: Seat) => {
-    if (seat.status === 'sold') return;
-    toggleSeatSelection(seat);
+  const eventCartItems = cart.filter((c) => c.event_id === eventId);
+  const totalItemCount = eventCartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice = eventCartItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+
+  const handleQuantityChange = (tier: TicketTier, delta: number) => {
+    updateCartQuantity(
+      {
+        tier_id: tier.id,
+        tier_name: tier.name,
+        event_id: eventId,
+        event_name: event?.name || '',
+        unit_price: tier.price,
+      },
+      delta
+    );
   };
 
   const handleProceedClick = async () => {
@@ -80,7 +90,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       await confirm({
         segmentTag: 'AUTENTIKASI & AKUN',
         title: 'Sign In Diperlukan',
-        message: 'Anda perlu Sign In terlebih dahulu sebelum mengunci kursi dan melakukan checkout pesanan.',
+        message: 'Anda perlu Sign In terlebih dahulu sebelum melanjutkan ke pembayaran tiket.',
         confirmText: 'Mengerti',
         cancelText: 'Tutup',
         variant: 'warning',
@@ -88,45 +98,18 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       return;
     }
 
-    if (selectedSeats.length === 0) {
-      setErrorMsg('Pilih minimal 1 kursi sebelum melanjutkan.');
+    if (totalItemCount === 0) {
+      setErrorMsg('Pilih minimal 1 tiket sebelum melanjutkan.');
       return;
     }
 
-    const isConfirmed = await segmentConfirmTemplates.lockSeat(confirm, {
-      seatCount: selectedSeats.length,
-      totalPrice,
-    });
-
-    if (!isConfirmed) return;
-
-    setLocking(true);
-    setErrorMsg('');
-
-    try {
-      // Lock seats sequentially / in batch
-      for (const seat of selectedSeats) {
-        await api.post('/tickets/lock-seat', {
-          event_id: eventId,
-          seat_id: seat.id,
-        });
-      }
-
-      // Navigate to checkout page
-      router.push('/checkout');
-    } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Gagal mengunci kursi. Coba lagi.');
-    } finally {
-      setLocking(false);
-    }
+    router.push('/checkout');
   };
-
-  const totalPrice = selectedSeats.reduce((sum, s) => sum + s.price, 0);
 
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center text-zinc-400 text-sm animate-pulse">
-        Memuat tata letak seat map interaktif...
+        Memuat detail event &amp; kategori tiket...
       </div>
     );
   }
@@ -138,9 +121,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       </div>
     );
   }
-
-  // Group seats by Category & Row
-  const categories = Array.from(new Set(seats.map((s) => s.category)));
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-32">
@@ -193,94 +173,119 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
-      {/* Interactive Seat Map Section */}
+      {/* Stage Layout Visualization Info */}
+      <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl p-6 md:p-8 space-y-4 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300">
+            <Layers className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Tata Letak Penonton &amp; Jarak Panggung</h2>
+            <p className="text-xs text-indigo-200">Kategori tiket ditentukan berdasarkan jarak posisi menyaksikan dari panggung utama.</p>
+          </div>
+        </div>
+
+        {event.venue_layout_info && (
+          <div className="p-4 rounded-2xl bg-white/10 border border-white/10 text-xs text-slate-200 leading-relaxed font-medium">
+            <Info className="w-4 h-4 text-indigo-400 inline mr-2" />
+            {event.venue_layout_info}
+          </div>
+        )}
+
+        {/* Stage Banner Visual */}
+        <div className="w-full max-w-xl mx-auto py-3 bg-gradient-to-r from-indigo-500/30 via-indigo-500/60 to-indigo-500/30 rounded-2xl text-center text-xs font-black tracking-widest text-white uppercase border border-indigo-400/40 shadow-inner">
+          ══ PANGGUNG UTAMA / STAGE ARENA ══
+        </div>
+      </div>
+
+      {/* Ticket Tiers Selection Section */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 space-y-6 shadow-xs">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
           <div>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Ticket className="w-5 h-5 text-indigo-600" />
-              Peta Kursi &amp; Kategori Tiket Interaktif
+              Pilih Kategori Tiket
             </h2>
-            <p className="text-xs text-slate-500 font-medium">Klik pada kursi yang tersedia untuk memilih tempat duduk Anda.</p>
-          </div>
-
-          {/* Seat Status Legend */}
-          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-md border-2 border-indigo-500 bg-indigo-50" />
-              <span className="text-slate-600">Tersedia</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">✓</div>
-              <span className="text-slate-600">Dipilih</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-md bg-amber-400 text-amber-950 flex items-center justify-center text-[10px] font-bold">🔒</div>
-              <span className="text-slate-600">Terkunci (Hold)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-md bg-slate-300 opacity-60" />
-              <span className="text-slate-600">Terjual</span>
-            </div>
+            <p className="text-xs text-slate-500 font-medium">Pilih jumlah tiket pada kategori yang Anda inginkan.</p>
           </div>
         </div>
 
-        {/* Stage Diagram */}
-        <div className="w-full max-w-xl mx-auto py-3 bg-gradient-to-r from-slate-200 via-indigo-100 to-slate-200 rounded-xl text-center text-xs font-black tracking-widest text-indigo-900 uppercase border border-indigo-200 shadow-inner">
-          ══ PANGGUNG UTAMA / STAGE ARENA ══
-        </div>
-
-        {/* Seat Grid Layout */}
-        <div className="space-y-8 pt-4">
-          {categories.map((category) => {
-            const catSeats = seats.filter((s) => s.category === category);
-            const price = catSeats[0]?.price || 0;
+        {/* Tier Cards Grid */}
+        <div className="space-y-4">
+          {tiers.map((tier) => {
+            const available = tier.available !== undefined ? tier.available : tier.quota - tier.sold;
+            const isSoldOut = available <= 0;
+            const cartItem = eventCartItems.find((c) => c.tier_id === tier.id);
+            const currentQty = cartItem ? cartItem.quantity : 0;
 
             return (
-              <div key={category} className="space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                  <span className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${category === 'VIP' ? 'bg-amber-500' : category === 'CAT 1' ? 'bg-indigo-500' : category === 'CAT 2' ? 'bg-cyan-500' : 'bg-emerald-500'}`} />
-                    Kategori {category}
-                  </span>
-                  <span className="text-xs font-extrabold text-indigo-600">
-                    Rp {price.toLocaleString('id-ID')} / kursi
-                  </span>
+              <div
+                key={tier.id}
+                className={`p-5 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                  currentQty > 0
+                    ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-600 shadow-sm'
+                    : isSoldOut
+                    ? 'border-slate-200 bg-slate-50 opacity-60'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="w-3.5 h-3.5 rounded-full shrink-0 border-2 border-white shadow-xs"
+                      style={{ backgroundColor: tier.color }}
+                    />
+                    <h3 className="font-extrabold text-slate-900 text-base">{tier.name}</h3>
+                    <span
+                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                        isSoldOut
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {isSoldOut ? 'Habis (Sold Out)' : `Tersisa ${available} tiket`}
+                    </span>
+                  </div>
+
+                  {tier.description && (
+                    <p className="text-xs text-slate-600 font-normal leading-relaxed">{tier.description}</p>
+                  )}
+
+                  <div className="text-base font-black text-indigo-700">
+                    Rp {tier.price.toLocaleString('id-ID')}{' '}
+                    <span className="text-xs font-normal text-slate-400">/ tiket</span>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {catSeats.map((seat) => {
-                    const isSelected = selectedSeats.some((s) => s.id === seat.id);
-                    const isLocked = seat.status === 'locked';
-                    const isSold = seat.status === 'sold';
-
-                    let seatStyle = 'border-2 border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-900 font-semibold';
-                    if (isSelected) {
-                      seatStyle = 'bg-emerald-600 border-emerald-600 text-white font-bold scale-105 shadow-md shadow-emerald-600/30';
-                    } else if (isLocked) {
-                      seatStyle = 'bg-amber-400 border-amber-400 text-amber-950 font-bold cursor-not-allowed';
-                    } else if (isSold) {
-                      seatStyle = 'bg-slate-200 border-slate-200 text-slate-400 cursor-not-allowed opacity-50';
-                    }
-
-                    return (
+                {/* Quantity Controller */}
+                <div className="flex items-center gap-3 shrink-0 self-end md:self-center">
+                  {isSoldOut ? (
+                    <span className="text-xs font-bold text-slate-400 bg-slate-200 px-4 py-2 rounded-xl">
+                      Sold Out
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
                       <button
-                        key={seat.id}
-                        disabled={isSold}
-                        onClick={() => handleSeatClick(seat)}
-                        className={`w-10 h-10 rounded-xl text-[11px] flex flex-col items-center justify-center transition-all ${seatStyle}`}
-                        title={`Kursi ${seat.row}-${seat.number} (${seat.category}) — Rp ${seat.price.toLocaleString('id-ID')}`}
+                        onClick={() => handleQuantityChange(tier, -1)}
+                        disabled={currentQty === 0}
+                        className="w-8 h-8 rounded-xl bg-white text-slate-700 font-bold hover:bg-slate-200 disabled:opacity-30 transition-all flex items-center justify-center shadow-xs"
                       >
-                        {isSelected ? (
-                          <Check className="w-4 h-4 stroke-[3]" />
-                        ) : isLocked ? (
-                          <Lock className="w-3.5 h-3.5" />
-                        ) : (
-                          <span>{seat.row}{seat.number}</span>
-                        )}
+                        <Minus className="w-3.5 h-3.5" />
                       </button>
-                    );
-                  })}
+
+                      <span className="w-8 text-center text-sm font-extrabold text-slate-900 font-mono">
+                        {currentQty}
+                      </span>
+
+                      <button
+                        onClick={() => handleQuantityChange(tier, 1)}
+                        disabled={currentQty >= available}
+                        className="w-8 h-8 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:opacity-30 transition-all flex items-center justify-center shadow-xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -288,20 +293,20 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      {/* Sticky Bottom Bar for Selection Summary */}
-      {selectedSeats.length > 0 && (
+      {/* Sticky Bottom Bar */}
+      {totalItemCount > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl py-4 px-6">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4 w-full sm:w-auto">
               <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-indigo-600/30">
-                {selectedSeats.length}
+                {totalItemCount}
               </div>
               <div>
-                <span className="block text-xs font-semibold text-slate-500">Kursi Dipilih</span>
+                <span className="block text-xs font-semibold text-slate-500">Tiket Dipilih</span>
                 <div className="flex flex-wrap gap-1">
-                  {selectedSeats.map((s) => (
-                    <span key={s.id} className="text-xs font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                      {s.row}{s.number}
+                  {eventCartItems.map((item) => (
+                    <span key={item.tier_id} className="text-xs font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                      {item.tier_name} × {item.quantity}
                     </span>
                   ))}
                 </div>
@@ -318,10 +323,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
               <button
                 onClick={handleProceedClick}
-                disabled={locking}
                 className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-extrabold bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/30 transition-all"
               >
-                {locking ? 'Kunci Kursi...' : 'Lanjut Checkout'}
+                Lanjut Checkout
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

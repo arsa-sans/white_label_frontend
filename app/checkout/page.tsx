@@ -2,50 +2,55 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Timer, CreditCard, QrCode, Building2, CheckCircle2, Ticket, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, CreditCard, QrCode, Building2, CheckCircle2, Ticket, ArrowLeft, Loader2 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import api from '@/lib/api';
 import { useConfirm } from '@/hooks/useConfirm';
-import { segmentConfirmTemplates } from '@/lib/confirmPresets';
+
+declare global {
+  interface Window {
+    snap?: any;
+  }
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
   const confirm = useConfirm();
-  const { selectedSeats, activeEventId, clearSeatSelection } = useAppStore();
+  const { cart, activeEventId, clearCart, user } = useAppStore();
 
-  const [paymentMethod, setPaymentMethod] = useState<'qris' | 'va' | 'wallet'>('qris');
-  const [timeLeft, setTimeLeft] = useState<number>(300); // 5 minutes (300 sec)
+  const [paymentMethod, setPaymentMethod] = useState<'midtrans' | 'qris' | 'va' | 'wallet'>('midtrans');
   const [loading, setLoading] = useState(false);
   const [successOrder, setSuccessOrder] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Countdown timer
+  // Load Midtrans Snap.js script dynamically
   useEffect(() => {
-    if (timeLeft <= 0) return;
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [timeLeft]);
+    const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || 'Mid-client-vuSELOSGIb9GhTe1';
+    const scriptId = 'midtrans-script';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
+      script.setAttribute('data-client-key', clientKey);
+      document.body.appendChild(script);
+    }
+  }, []);
 
-  const formatTimer = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const totalPrice = selectedSeats.reduce((sum, s) => sum + s.price, 0);
+  const totalPrice = cart.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
 
   const handlePayClick = async () => {
-    if (selectedSeats.length === 0) {
+    if (cart.length === 0) {
       router.push('/');
       return;
     }
 
-    const isConfirmed = await segmentConfirmTemplates.checkout(confirm, {
-      amount: totalPrice,
-      paymentMethod,
-      itemCount: selectedSeats.length,
+    const isConfirmed = await confirm({
+      segmentTag: 'KONFIRMASI PEMBAYARAN',
+      title: 'Konfirmasi Pembelian Tiket',
+      message: `Total tagihan Anda adalah Rp ${totalPrice.toLocaleString('id-ID')} untuk ${cart.reduce((s, i) => s + i.quantity, 0)} tiket. Lanjutkan ke gerbang pembayaran Midtrans Sandbox?`,
+      confirmText: 'Lanjut ke Pembayaran',
+      cancelText: 'Batal',
+      variant: 'info',
     });
 
     if (!isConfirmed) return;
@@ -55,13 +60,18 @@ export default function CheckoutPage() {
 
     try {
       // 1. Create order with Idempotency Key
-      const idempotencyKey = `idemp-${Date.now()}-${Math.random()}`;
+      const idempotencyKey = `idemp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       const orderRes = await api.post(
         '/payments/orders',
         {
-          event_id: activeEventId || 'evt-001',
-          seat_ids: selectedSeats.map((s) => s.id),
+          event_id: activeEventId || cart[0]?.event_id || 'evt-001',
+          items: cart.map((item) => ({
+            tier_id: item.tier_id,
+            quantity: item.quantity,
+          })),
           payment_gateway: paymentMethod.toUpperCase(),
+          customer_name: user?.name,
+          customer_email: user?.email,
         },
         {
           headers: {
@@ -70,25 +80,60 @@ export default function CheckoutPage() {
         }
       );
 
-      const orderData = orderRes.data.data;
-      const orderId = orderData?.order?.id || orderData?.id;
+      const resData = orderRes.data.data;
+      const orderObj = resData?.order || resData;
+      const snapToken = resData?.payment?.snap_token || resData?.snap_token;
+      const isRealSnap = snapToken && !snapToken.startsWith('sim-');
 
-      if (!orderId) {
-        throw new Error('Gagal mendapatkan Order ID dari server.');
+      if (!orderObj?.id) {
+        throw new Error('Gagal membuat pesanan di server.');
       }
 
-      // 2. Simulate Payment Completion
-      const payRes = await api.post(`/payments/orders/${orderId}/pay`, {
-        payment_method: paymentMethod,
-      });
+      // 2. Midtrans Snap Popup vs Simulation Flow
+      if (isRealSnap && window.snap) {
+        window.snap.pay(snapToken, {
+          onSuccess: async (result: any) => {
+            // Confirm simulation completion on backend
+            const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
+              payment_method: paymentMethod,
+            });
+            if (payRes.data.success) {
+              setSuccessOrder(payRes.data.data);
+              clearCart();
+            }
+          },
+          onPending: async (result: any) => {
+            const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
+              payment_method: paymentMethod,
+            });
+            if (payRes.data.success) {
+              setSuccessOrder(payRes.data.data);
+              clearCart();
+            }
+          },
+          onError: (result: any) => {
+            setErrorMsg('Pembayaran gagal atau dibatalkan di Midtrans.');
+            setLoading(false);
+          },
+          onClose: () => {
+            setErrorMsg('Jendela pembayaran Midtrans ditutup sebelum selesai.');
+            setLoading(false);
+          },
+        });
+      } else {
+        // Fallback simulation mode
+        const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
+          payment_method: paymentMethod,
+        });
 
-      if (payRes.data.success) {
-        setSuccessOrder(payRes.data.data);
-        clearSeatSelection();
+        if (payRes.data.success) {
+          setSuccessOrder(payRes.data.data);
+          clearCart();
+        }
       }
     } catch (err: any) {
       const serverMsg = err.response?.data?.message || err.message;
-      setErrorMsg(serverMsg || 'Proses pembayaran gagal. Coba lagi.');
+      setErrorMsg(serverMsg || 'Proses pembayaran gagal. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -113,12 +158,12 @@ export default function CheckoutPage() {
           </h3>
           <div className="space-y-2">
             {successOrder.tickets.map((t: any) => (
-              <div key={t.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex justify-between items-center text-xs">
+              <div key={t.id} className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex justify-between items-center text-xs">
                 <div>
-                  <span className="font-bold text-slate-900 block">Kursi: {t.seat_name}</span>
-                  <span className="text-[10px] text-slate-400 font-medium">Kategori: {t.category}</span>
+                  <span className="font-bold text-slate-900 block">Kategori Tiket: {t.tier_name || t.seat_name}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">ID: {t.id}</span>
                 </div>
-                <span className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">
+                <span className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">
                   Valid / Ready
                 </span>
               </div>
@@ -152,35 +197,39 @@ export default function CheckoutPage() {
         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs"
       >
         <ArrowLeft className="w-4 h-4 text-slate-600" />
-        Kembali ke Pemilihan Kursi
+        Kembali ke Detail Event
       </button>
-
-      {/* Seat Lock Countdown Banner */}
-      <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-amber-500 text-white font-bold">
-            <Timer className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="block text-xs font-bold text-amber-900">Kursi Anda Sedang Ditahan (Hold Lock)</span>
-            <span className="text-[11px] text-amber-700 font-medium">Selesaikan pembayaran sebelum waktu habis agar kunci kursi tidak lepas.</span>
-          </div>
-        </div>
-        <div className="text-xl font-black font-mono text-amber-800 px-3 py-1 bg-amber-100 rounded-xl border border-amber-200">
-          {formatTimer(timeLeft)}
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Payment Methods */}
         <div className="md:col-span-2 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-xs">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-indigo-600" />
-              Pilih Metode Pembayaran
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-indigo-600" />
+                Pilih Metode Pembayaran
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase border border-emerald-200">
+                Midtrans Sandbox Active
+              </span>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                onClick={() => setPaymentMethod('midtrans')}
+                className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-28 ${
+                  paymentMethod === 'midtrans'
+                    ? 'border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-600 shadow-xs'
+                    : 'border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <CreditCard className="w-6 h-6 text-indigo-600" />
+                <div>
+                  <span className="block font-bold text-xs text-slate-900">Midtrans Snap Popup</span>
+                  <span className="text-[10px] text-slate-500 font-medium">QRIS, VA, E-Wallet, Card</span>
+                </div>
+              </button>
+
               <button
                 onClick={() => setPaymentMethod('qris')}
                 className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-28 ${
@@ -192,7 +241,7 @@ export default function CheckoutPage() {
                 <QrCode className="w-6 h-6 text-indigo-600" />
                 <div>
                   <span className="block font-bold text-xs text-slate-900">QRIS Instant</span>
-                  <span className="text-[10px] text-slate-500 font-medium">GoPay, OVO, Dana, BCA</span>
+                  <span className="text-[10px] text-slate-500 font-medium">GoPay, OVO, Dana, Shopee</span>
                 </div>
               </button>
 
@@ -210,21 +259,6 @@ export default function CheckoutPage() {
                   <span className="text-[10px] text-slate-500 font-medium">BCA, Mandiri, BRI, BNI</span>
                 </div>
               </button>
-
-              <button
-                onClick={() => setPaymentMethod('wallet')}
-                className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-28 ${
-                  paymentMethod === 'wallet'
-                    ? 'border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-600 shadow-xs'
-                    : 'border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <ShieldCheck className="w-6 h-6 text-emerald-600" />
-                <div>
-                  <span className="block font-bold text-xs text-slate-900">Dompet Cashless</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Saldo Event Wallet</span>
-                </div>
-              </button>
             </div>
           </div>
         </div>
@@ -235,13 +269,13 @@ export default function CheckoutPage() {
             <h3 className="text-base font-bold text-slate-900">Ringkasan Pesanan</h3>
 
             <div className="space-y-3 text-xs border-b border-slate-100 pb-4">
-              {selectedSeats.map((seat) => (
-                <div key={seat.id} className="flex justify-between items-center">
+              {cart.map((item) => (
+                <div key={item.tier_id} className="flex justify-between items-center">
                   <span className="text-slate-600 font-medium">
-                    Kursi {seat.row}-{seat.number} ({seat.category})
+                    {item.tier_name} × {item.quantity}
                   </span>
                   <span className="font-bold text-slate-900">
-                    Rp {seat.price.toLocaleString('id-ID')}
+                    Rp {(item.quantity * item.unit_price).toLocaleString('id-ID')}
                   </span>
                 </div>
               ))}
@@ -262,10 +296,11 @@ export default function CheckoutPage() {
 
             <button
               onClick={handlePayClick}
-              disabled={loading || selectedSeats.length === 0}
-              className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white font-extrabold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50"
+              disabled={loading || cart.length === 0}
+              className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white font-extrabold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loading ? 'Memproses Transaksi...' : 'Bayar Sekarang & Terbitkan Tiket'}
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {loading ? 'Memproses Transaksi...' : 'Bayar Sekarang via Midtrans'}
             </button>
           </div>
         </div>

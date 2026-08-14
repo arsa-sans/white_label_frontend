@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, Ticket, QrCode, RefreshCw, CircleDollarSign, Activity, CheckCircle2 } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, Ticket, QrCode, RefreshCw, CircleDollarSign, Activity, CheckCircle2, Store, UserCheck, Plus, Trash2, Calendar } from 'lucide-react';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
 
@@ -63,34 +63,13 @@ function OccupancyBar({ label, percent, color }: { label: string; percent: numbe
 }
 
 export default function DashboardPage() {
-
   const { user, token } = useAppStore();
   const router = useRouter();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-  
-  // Tab state: 'analytics' | 'staff' | 'admin'
-  const [activeTab, setActiveTab] = useState<'analytics' | 'staff' | 'admin'>('analytics');
-  const [pendingOrganizers, setPendingOrganizers] = useState<any[]>([]);
 
-  const fetchPendingOrganizers = async () => {
-    try {
-      const res = await api.get('/auth/pending-organizers');
-      if (res.data.success) {
-        setPendingOrganizers(res.data.data);
-      }
-    } catch {}
-  };
-
-  const handleReviewOrganizer = async (userId: string, action: 'approved' | 'rejected') => {
-    try {
-      const res = await api.post(`/auth/${userId}/review`, { action });
-      if (res.data.success) {
-        setPendingOrganizers((prev) => prev.filter((u) => u.id !== userId));
-      }
-    } catch {}
-  };
+  // Tab state: 'analytics' | 'staff' | 'vendors'
+  const [activeTab, setActiveTab] = useState<'analytics' | 'staff' | 'vendors'>('analytics');
 
   // Staff management states
   const [staffList, setStaffList] = useState<any[]>([]);
@@ -99,6 +78,7 @@ export default function DashboardPage() {
   const [staffName, setStaffName] = useState('');
   const [staffEmail, setStaffEmail] = useState('');
   const [staffPassword, setStaffPassword] = useState('');
+  const [staffRole, setStaffRole] = useState<'gate_staff' | 'vendor'>('gate_staff');
   const [staffError, setStaffError] = useState('');
 
   useEffect(() => {
@@ -118,13 +98,11 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [user, token, router]);
 
-
   const fetchMetrics = async () => {
     try {
       const res = await api.get('/analytics/dashboard');
       if (res.data.success) {
         setMetrics(res.data.data);
-        setLastRefresh(new Date());
       }
     } catch {
       // Quiet error handling
@@ -160,6 +138,7 @@ export default function DashboardPage() {
         name: staffName,
         email: staffEmail,
         password: staffPassword,
+        role: staffRole,
       });
 
       if (res.data.success) {
@@ -170,7 +149,7 @@ export default function DashboardPage() {
         setStaffPassword('');
       }
     } catch (err: any) {
-      setStaffError(err.response?.data?.message || 'Gagal menambahkan gate staff');
+      setStaffError(err.response?.data?.message || 'Gagal menambahkan akun');
     }
   };
 
@@ -185,6 +164,9 @@ export default function DashboardPage() {
     }
   };
 
+  const gateStaffMembers = staffList.filter((s) => s.role === 'gate_staff' || !s.role);
+  const vendorMembers = staffList.filter((s) => s.role === 'vendor');
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Page Header & Tabs */}
@@ -195,7 +177,7 @@ export default function DashboardPage() {
             Organizer Dashboard
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Metrik penjualan real-time, gate check-in, dan manajemen petugas gate staff.
+            Pantau metrik penjualan tiket, kelola petugas gate staff, dan vendor booth.
           </p>
         </div>
 
@@ -207,7 +189,7 @@ export default function DashboardPage() {
                 activeTab === 'analytics' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500'
               }`}
             >
-              Analytics
+              Beranda &amp; Analytics
             </button>
             <button
               onClick={() => setActiveTab('staff')}
@@ -215,22 +197,20 @@ export default function DashboardPage() {
                 activeTab === 'staff' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500'
               }`}
             >
-              Manajemen Gate Staff ({staffList.length})
+              Kelola Gate Staff ({gateStaffMembers.length})
             </button>
-            {(user?.role === 'admin' || user?.role === 'organizer') && (
-              <button
-                onClick={() => { setActiveTab('admin'); fetchPendingOrganizers(); }}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === 'admin' ? 'bg-white text-purple-600 shadow-xs' : 'text-slate-500'
-                }`}
-              >
-                Approval Organizer ({pendingOrganizers.length})
-              </button>
-            )}
+            <button
+              onClick={() => setActiveTab('vendors')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'vendors' ? 'bg-white text-amber-600 shadow-xs' : 'text-slate-500'
+              }`}
+            >
+              Kelola Vendor ({vendorMembers.length})
+            </button>
           </div>
 
           <button
-            onClick={fetchMetrics}
+            onClick={() => { fetchMetrics(); fetchStaff(); }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors shadow-xs"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -239,108 +219,52 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {activeTab === 'admin' ? (
-        /* Admin Pending Organizer Approvals Section */
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-xs">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Verifikasi & Approval Akun Organizer</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Email pengajuan dikirim ke Admin <strong>arsaprayata72@gmail.com</strong>. Tinjau kelayakan berkas NIK, Perusahaan, dan Event sebelum menyetujui.
-            </p>
-          </div>
-
-          {pendingOrganizers.length === 0 ? (
-            <div className="text-center py-12 text-xs text-slate-400 font-medium">
-              Tidak ada pengajuan akun organizer yang pending saat ini. Semua telah terverifikasi.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {pendingOrganizers.map((org) => (
-                <div key={org.id} className="p-5 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-100 pb-3">
-                    <div>
-                      <h3 className="font-extrabold text-sm text-slate-900">{org.name}</h3>
-                      <span className="text-xs font-mono text-slate-500">{org.email}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleReviewOrganizer(org.id, 'approved')}
-                        className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs"
-                      >
-                        ✓ Setujui (Approve)
-                      </button>
-                      <button
-                        onClick={() => handleReviewOrganizer(org.id, 'rejected')}
-                        className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs"
-                      >
-                        ✕ Tolak (Reject)
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Event Di-Submit</span>
-                      <span className="font-bold text-slate-800">{org.organizer_event_name || '-'}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Tanggal & Lokasi</span>
-                      <span className="font-semibold text-slate-700">{org.organizer_event_date} &bull; {org.organizer_event_location}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Status Persetujuan</span>
-                      <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold uppercase inline-block">
-                        {org.approval_status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : activeTab === 'staff' ? (
+      {activeTab === 'staff' ? (
         /* Staff Management Section */
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Petugas Gate Staff Event</h2>
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-indigo-600" />
+                  Pengelolaan Akun Gate Staff Event
+                </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Daftarkan gate staff baru. Akun ini akan digunakan staff untuk login di mobile scanner.
+                  Daftarkan gate staff. Akun ini digunakan untuk login di mobile scanner saat pemeriksaan tiket pengunjung.
                 </p>
               </div>
               <button
-                onClick={() => setAddStaffOpen(true)}
-                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md shadow-indigo-600/20"
+                onClick={() => { setStaffRole('gate_staff'); setAddStaffOpen(true); }}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md shadow-indigo-600/20 flex items-center gap-1.5"
               >
-                + Tambah Gate Staff
+                <Plus className="w-4 h-4" />
+                Tambah Gate Staff
               </button>
             </div>
 
             {staffLoading ? (
               <div className="text-center py-10 text-xs text-slate-400 font-medium">Memuat data staff...</div>
-            ) : staffList.length === 0 ? (
+            ) : gateStaffMembers.length === 0 ? (
               <div className="text-center py-10 text-xs text-slate-400 font-medium">
                 Belum ada gate staff yang ditugaskan untuk event ini.
               </div>
             ) : (
               <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
-                {staffList.map((s) => (
+                {gateStaffMembers.map((s) => (
                   <div key={s.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
                     <div>
                       <span className="font-extrabold text-sm text-slate-900 block">{s.name}</span>
                       <span className="text-xs text-slate-400 font-mono">{s.email}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-800 text-[10px] font-bold uppercase">
+                      <span className="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold uppercase">
                         Gate Staff
                       </span>
                       <button
                         onClick={() => handleRemoveStaff(s.id)}
-                        className="text-xs font-bold text-red-600 hover:text-red-800"
+                        className="text-xs font-bold text-red-600 hover:text-red-800 flex items-center gap-1"
                       >
-                        Hapus
+                        <Trash2 className="w-3.5 h-3.5" /> Hapus
                       </button>
                     </div>
                   </div>
@@ -348,68 +272,65 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-
-          {/* Add Staff Modal */}
-          {addStaffOpen && (
-            <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900">Tambah Gate Staff Baru</h3>
-                  <button onClick={() => setAddStaffOpen(false)} className="text-slate-400 font-bold text-sm">
-                    ✕
-                  </button>
-                </div>
-
-                {staffError && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs font-semibold">{staffError}</div>}
-
-                <form onSubmit={handleAddStaff} className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Nama Staff</label>
-                    <input
-                      type="text"
-                      value={staffName}
-                      onChange={(e) => setStaffName(e.target.value)}
-                      placeholder="Rudi Gate Staff"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Email Login Staff</label>
-                    <input
-                      type="email"
-                      value={staffEmail}
-                      onChange={(e) => setStaffEmail(e.target.value)}
-                      placeholder="rudi@gate.com"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Password Staff</label>
-                    <input
-                      type="password"
-                      value={staffPassword}
-                      onChange={(e) => setStaffPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 mt-2"
-                  >
-                    Simpan &amp; Beri Akses Mobile
-                  </button>
-                </form>
+        </div>
+      ) : activeTab === 'vendors' ? (
+        /* Vendor Management Section */
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Store className="w-5 h-5 text-amber-600" />
+                  Pengelolaan Akun Vendor Booth
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Daftarkan vendor booth (F&amp;B / Merchandise). Akun vendor digunakan untuk transaksi cashless wristband di venue.
+                </p>
               </div>
+              <button
+                onClick={() => { setStaffRole('vendor'); setAddStaffOpen(true); }}
+                className="px-4 py-2 rounded-xl bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 shadow-md shadow-amber-600/20 flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                Tambah Akun Vendor
+              </button>
             </div>
-          )}
+
+            {staffLoading ? (
+              <div className="text-center py-10 text-xs text-slate-400 font-medium">Memuat data vendor...</div>
+            ) : vendorMembers.length === 0 ? (
+              <div className="text-center py-10 text-xs text-slate-400 font-medium">
+                Belum ada vendor booth yang ditugaskan untuk event ini.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
+                {vendorMembers.map((s) => (
+                  <div key={s.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
+                    <div>
+                      <span className="font-extrabold text-sm text-slate-900 block">{s.name}</span>
+                      <span className="text-xs text-slate-400 font-mono">{s.email}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold uppercase">
+                        Vendor Booth
+                      </span>
+                      <button
+                        onClick={() => handleRemoveStaff(s.id)}
+                        className="text-xs font-bold text-red-600 hover:text-red-800 flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Hapus
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       ) : loading ? (
-
         <div className="text-center py-20 text-slate-400 text-sm animate-pulse font-medium">Memuat metrik dashboard...</div>
       ) : metrics ? (
         <div className="space-y-8">
-
           {/* KPI Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
@@ -437,7 +358,7 @@ export default function DashboardPage() {
               icon={Activity}
               label="Occupancy Rate"
               value={`${metrics.occupancy_rate_percent}%`}
-              sub="vs total kapasitas kursi"
+              sub="vs total kuota tiket"
               color="bg-amber-50 text-amber-700 border border-amber-100"
             />
           </div>
@@ -451,7 +372,7 @@ export default function DashboardPage() {
               </h2>
               <div className="space-y-4">
                 <OccupancyBar
-                  label="Occupancy Rate (Seat Sold)"
+                  label="Occupancy Rate (Tiket Terjual)"
                   percent={metrics.occupancy_rate_percent}
                   color="bg-gradient-to-r from-indigo-500 to-indigo-600"
                 />
@@ -471,7 +392,7 @@ export default function DashboardPage() {
             <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <QrCode className="w-4 h-4 text-emerald-600" />
-                Recent Gate Scans
+                Scan Gate Terakhir
               </h2>
               {(() => {
                 const scanLogs = metrics.recent_scan_logs || metrics.gate_scan_logs_recent || [];
@@ -574,7 +495,65 @@ export default function DashboardPage() {
           Gagal memuat metrik. Pastikan backend sedang berjalan.
         </div>
       )}
+
+      {/* Add Staff / Vendor Modal */}
+      {addStaffOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900">
+                {staffRole === 'vendor' ? 'Tambah Akun Vendor' : 'Tambah Gate Staff Baru'}
+              </h3>
+              <button onClick={() => setAddStaffOpen(false)} className="text-slate-400 font-bold text-sm">
+                ✕
+              </button>
+            </div>
+
+            {staffError && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs font-semibold">{staffError}</div>}
+
+            <form onSubmit={handleAddStaff} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Nama</label>
+                <input
+                  type="text"
+                  value={staffName}
+                  onChange={(e) => setStaffName(e.target.value)}
+                  placeholder={staffRole === 'vendor' ? 'Vendor Snack & Beverage' : 'Rudi Gate Staff'}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Email Login</label>
+                <input
+                  type="email"
+                  value={staffEmail}
+                  onChange={(e) => setStaffEmail(e.target.value)}
+                  placeholder={staffRole === 'vendor' ? 'vendor@soundwave.com' : 'rudi@gate.com'}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={staffPassword}
+                  onChange={(e) => setStaffPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
+                />
+              </div>
+              <button
+                type="submit"
+                className={`w-full py-2.5 rounded-xl text-white font-bold text-xs mt-2 ${
+                  staffRole === 'vendor' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+              >
+                Simpan &amp; Beri Akses
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
