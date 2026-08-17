@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { LayoutDashboard, TrendingUp, Ticket, QrCode, RefreshCw, CircleDollarSign, Activity, CheckCircle2, Store, UserCheck, Plus, Trash2, Calendar } from 'lucide-react';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
+import KpiCard from '@/components/dashboard/KpiCard';
+import OccupancyBar from '@/components/dashboard/OccupancyBar';
 
 interface DashboardMetrics {
   total_revenue: number;
@@ -16,50 +18,6 @@ interface DashboardMetrics {
   recent_orders?: any[];
   recent_scan_logs?: any[];
   gate_scan_logs_recent?: any[];
-}
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  color,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  sub?: string;
-  color: string;
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3 shadow-xs hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</span>
-        <div className={`p-2.5 rounded-xl ${color}`}>
-          <Icon className="w-4 h-4" />
-        </div>
-      </div>
-      <div className="text-2xl font-black text-slate-900">{value}</div>
-      {sub && <div className="text-xs text-slate-400 font-medium">{sub}</div>}
-    </div>
-  );
-}
-
-function OccupancyBar({ label, percent, color }: { label: string; percent: number; color: string }) {
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center text-xs">
-        <span className="font-bold text-slate-700">{label}</span>
-        <span className="font-extrabold text-slate-900">{percent}%</span>
-      </div>
-      <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
-        <div
-          className={`h-full rounded-full transition-all duration-700 ${color}`}
-          style={{ width: `${Math.min(percent, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
 }
 
 export default function DashboardPage() {
@@ -333,28 +291,28 @@ export default function DashboardPage() {
         <div className="space-y-8">
           {/* KPI Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
+            <KpiCard
               icon={CircleDollarSign}
               label="Total Revenue"
               value={`Rp ${(metrics.total_revenue / 1000000).toFixed(1)}jt`}
               sub={`${metrics.total_tickets_sold} tiket terjual`}
               color="bg-indigo-50 text-indigo-700 border border-indigo-100"
             />
-            <StatCard
+            <KpiCard
               icon={Ticket}
               label="Tiket Terjual"
               value={String(metrics.total_tickets_sold)}
               sub={`${metrics.total_events} event aktif`}
               color="bg-cyan-50 text-cyan-700 border border-cyan-100"
             />
-            <StatCard
+            <KpiCard
               icon={QrCode}
               label="Check-in Gate"
               value={String(metrics.total_scanned)}
               sub={`${metrics.checkin_rate_percent}% dari tiket sold`}
               color="bg-emerald-50 text-emerald-700 border border-emerald-100"
             />
-            <StatCard
+            <KpiCard
               icon={Activity}
               label="Occupancy Rate"
               value={`${metrics.occupancy_rate_percent}%`}
