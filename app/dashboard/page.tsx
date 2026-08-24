@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, Ticket, QrCode, RefreshCw, CircleDollarSign, Activity, CheckCircle2, Store, UserCheck, Plus, Trash2, Calendar } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, Ticket, QrCode, RefreshCw, CircleDollarSign, Activity, CheckCircle2, Store, UserCheck, Plus, Trash2, Calendar, FileSpreadsheet, ChevronDown, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
 import KpiCard from '@/components/dashboard/KpiCard';
@@ -28,6 +28,10 @@ export default function DashboardPage() {
 
   // Tab state: 'analytics' | 'staff' | 'vendors'
   const [activeTab, setActiveTab] = useState<'analytics' | 'staff' | 'vendors'>('analytics');
+
+  // Export dropdown state
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportingType, setExportingType] = useState<string | null>(null);
 
   // Staff management states
   const [staffList, setStaffList] = useState<any[]>([]);
@@ -55,6 +59,31 @@ export default function DashboardPage() {
     const interval = setInterval(fetchMetrics, 30000);
     return () => clearInterval(interval);
   }, [user, token, router]);
+
+  const handleExportExcel = async (type: 'sales' | 'gate-logs' | 'booth-transactions', filename: string) => {
+    setExportingType(type);
+    setShowExportMenu(false);
+    try {
+      const res = await api.get(`/analytics/export/${type}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${filename}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert('Gagal mengekspor laporan Excel. Pastikan data tersedia.');
+    } finally {
+      setExportingType(null);
+    }
+  };
 
   const fetchMetrics = async () => {
     try {
@@ -165,6 +194,52 @@ export default function DashboardPage() {
             >
               Kelola Vendor ({vendorMembers.length})
             </button>
+          </div>
+
+          {/* Export Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              disabled={exportingType !== null}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50"
+            >
+              {exportingType ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+              ) : (
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              )}
+              <span>{exportingType ? 'Mengekspor...' : 'Export Excel'}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {showExportMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-30 py-1.5 text-xs animate-fadeIn">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                  Pilih Format Laporan
+                </div>
+                <button
+                  onClick={() => handleExportExcel('sales', 'laporan-penjualan')}
+                  className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2 transition"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+                  <span>Laporan Penjualan Tiket</span>
+                </button>
+                <button
+                  onClick={() => handleExportExcel('gate-logs', 'log-gate-checkin')}
+                  className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2 transition"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                  <span>Log Gate Scan Check-In</span>
+                </button>
+                <button
+                  onClick={() => handleExportExcel('booth-transactions', 'transaksi-booth')}
+                  className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-2 transition"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-amber-600" />
+                  <span>Transaksi Booth Vendor</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <button

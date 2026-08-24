@@ -24,6 +24,7 @@ interface EventCardProps {
   onDelete: () => void;
   onToggleStatus: () => void;
   onManageTiers: () => void;
+  onManageSessions?: () => void;
 }
 
 export default function EventCard({
@@ -32,6 +33,7 @@ export default function EventCard({
   onDelete,
   onToggleStatus,
   onManageTiers,
+  onManageSessions,
 }: EventCardProps) {
   const isPublished = event.status === 'published';
   const dateStr = new Date(event.start_date).toLocaleDateString('id-ID', {
@@ -107,17 +109,26 @@ export default function EventCard({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 pt-1">
+        <div className="flex flex-wrap gap-2 pt-1">
           <button
             onClick={onManageTiers}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 text-xs font-bold hover:bg-violet-100 transition-colors flex-1 justify-center"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 text-xs font-bold hover:bg-violet-100 transition-colors flex-1 justify-center"
           >
             <Layers className="w-3.5 h-3.5" /> Tier Tiket
           </button>
+          {onManageSessions && (
+            <button
+              onClick={onManageSessions}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-bold hover:bg-blue-100 transition-colors"
+              title="Kelola Sesi & Hari"
+            >
+              <Calendar className="w-3.5 h-3.5" /> Sesi
+            </button>
+          )}
           <button
             onClick={onToggleStatus}
             title={isPublished ? 'Unpublish' : 'Publish'}
-            className={`p-2 rounded-xl border text-xs font-bold transition-colors ${
+            className={`p-1.5 rounded-xl border text-xs font-bold transition-colors ${
               isPublished
                 ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
                 : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
@@ -127,13 +138,13 @@ export default function EventCard({
           </button>
           <button
             onClick={onEdit}
-            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors"
+            className="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors"
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onDelete}
-            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors"
+            className="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -142,3 +153,4 @@ export default function EventCard({
     </div>
   );
 }
+

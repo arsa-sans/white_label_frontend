@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, MapPin, Ticket, Plus, Minus, ArrowRight, Info, Layers, CheckCircle2 } from 'lucide-react';
+import { Calendar, MapPin, Ticket, Plus, Minus, ArrowRight, Info, Layers, CheckCircle2, Clock } from 'lucide-react';
 import api from '@/lib/api';
 import { useAppStore, TicketTier } from '@/lib/store';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -31,6 +31,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [tiers, setTiers] = useState<TicketTier[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -48,9 +49,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const fetchData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const [evtRes, tierRes] = await Promise.all([
+      const [evtRes, tierRes, sessRes] = await Promise.all([
         api.get(`/events/${eventId}`),
         api.get(`/events/${eventId}/tiers`),
+        api.get(`/events/${eventId}/sessions`),
       ]);
 
       if (evtRes.data.success) {
@@ -58,6 +60,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       }
       if (tierRes.data.success) {
         setTiers(tierRes.data.data);
+      }
+      if (sessRes.data.success) {
+        setSessions(sessRes.data.data);
       }
     } catch (err: any) {
       if (!isBackground) {
@@ -197,6 +202,52 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           ══ PANGGUNG UTAMA / STAGE ARENA ══
         </div>
       </div>
+
+      {/* Multi-Day Sessions Rundown Section */}
+      {sessions.length > 0 && (
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 space-y-5 shadow-xs">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Jadwal &amp; Lineup Harian (Multi-Day Pass)</h2>
+              <p className="text-xs text-slate-500 font-medium">
+                Pilih tiket sesuai hari kunjungan Anda atau beli All-Day Pass untuk akses penuh semua sesi.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {sessions.map((sess, idx) => (
+              <div
+                key={sess.id}
+                className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 hover:border-indigo-300 transition space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">
+                    Sesi {sess.sort_order || idx + 1}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs font-bold text-slate-600">
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    {sess.start_time} - {sess.end_time} WIB
+                  </span>
+                </div>
+                <h3 className="text-sm font-extrabold text-slate-900">{sess.name}</h3>
+                <p className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                  {sess.date}
+                </p>
+                {sess.description && (
+                  <p className="text-xs text-slate-600 pt-1 border-t border-slate-200/60 leading-relaxed">
+                    {sess.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Ticket Tiers Selection Section */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 space-y-6 shadow-xs">

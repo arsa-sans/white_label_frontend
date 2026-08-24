@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, CreditCard, QrCode, Building2, CheckCircle2, Ticket, ArrowLeft, Loader2 } from 'lucide-react';
+import { ShieldCheck, CreditCard, QrCode, Building2, CheckCircle2, Ticket, ArrowLeft, Loader2, Tag, Percent, X } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import api from '@/lib/api';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -23,6 +23,12 @@ export default function CheckoutPage() {
   const [successOrder, setSuccessOrder] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Promo Code State
+  const [promoInput, setPromoInput] = useState('');
+  const [validatingPromo, setValidatingPromo] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState<any>(null);
+  const [promoMessage, setPromoMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
   // Load Midtrans Snap.js script dynamically
   useEffect(() => {
     const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || 'Mid-client-vuSELOSGIb9GhTe1';
@@ -36,7 +42,42 @@ export default function CheckoutPage() {
     }
   }, []);
 
-  const totalPrice = cart.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  const discountAmount = appliedPromo ? appliedPromo.discount_amount : 0;
+  const finalPrice = Math.max(0, subtotal - discountAmount);
+
+  const handleApplyPromo = async () => {
+    if (!promoInput.trim()) return;
+    setValidatingPromo(true);
+    setPromoMessage(null);
+
+    try {
+      const res = await api.post('/promos/validate', {
+        code: promoInput.trim().toUpperCase(),
+        event_id: activeEventId || cart[0]?.event_id || '',
+        cart_total: subtotal,
+      });
+
+      if (res.data.success) {
+        setAppliedPromo(res.data.data);
+        setPromoMessage({ text: res.data.message, type: 'success' });
+      }
+    } catch (err: any) {
+      setAppliedPromo(null);
+      setPromoMessage({
+        text: err.response?.data?.message || 'Kode promo tidak valid atau kadaluarsa.',
+        type: 'error',
+      });
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoInput('');
+    setPromoMessage(null);
+  };
 
   const handlePayClick = async () => {
     if (cart.length === 0) {
@@ -47,7 +88,7 @@ export default function CheckoutPage() {
     const isConfirmed = await confirm({
       segmentTag: 'KONFIRMASI PEMBAYARAN',
       title: 'Konfirmasi Pembelian Tiket',
-      message: `Total tagihan Anda adalah Rp ${totalPrice.toLocaleString('id-ID')} untuk ${cart.reduce((s, i) => s + i.quantity, 0)} tiket. Lanjutkan ke gerbang pembayaran Midtrans Sandbox?`,
+      message: `Total tagihan Anda adalah Rp ${finalPrice.toLocaleString('id-ID')} untuk ${cart.reduce((s, i) => s + i.quantity, 0)} tiket.${appliedPromo ? ` (Termasuk hemat diskon Rp ${discountAmount.toLocaleString('id-ID')})` : ''} Lanjutkan ke gerbang pembayaran Midtrans Sandbox?`,
       confirmText: 'Lanjut ke Pembayaran',
       cancelText: 'Batal',
       variant: 'info',
@@ -69,6 +110,7 @@ export default function CheckoutPage() {
             tier_id: item.tier_id,
             quantity: item.quantity,
           })),
+          promo_code: appliedPromo ? appliedPromo.promo?.code || promoInput.toUpperCase() : undefined,
           payment_gateway: paymentMethod.toUpperCase(),
           customer_name: user?.name,
           customer_email: user?.email,
@@ -281,11 +323,96 @@ export default function CheckoutPage() {
               ))}
             </div>
 
-            <div className="flex justify-between items-center text-sm pt-2">
-              <span className="font-bold text-slate-900">Total Pembayaran</span>
-              <span className="font-black text-indigo-600 text-lg">
-                Rp {totalPrice.toLocaleString('id-ID')}
-              </span>
+            {/* Promo Code Section */}
+            <div className="space-y-2 pt-1 border-b border-slate-100 pb-4">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-purple-600" />
+                Punya Kode Promo?
+              </label>
+
+              {appliedPromo ? (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-xs">
+                      %
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-purple-900 font-mono">
+                        {appliedPromo.promo?.code}
+                      </div>
+                      <div className="text-[10px] text-purple-700 font-medium">
+                        Hemat Rp {discountAmount.toLocaleString('id-ID')}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleRemovePromo}
+                    className="text-slate-400 hover:text-red-600 p-1 rounded-lg hover:bg-white/80 transition"
+                    title="Hapus Promo"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="KODE PROMO"
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-600 transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyPromo}
+                    disabled={validatingPromo || !promoInput.trim()}
+                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {validatingPromo ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      'Terapkan'
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {promoMessage && (
+                <p
+                  className={`text-[11px] font-medium mt-1 ${
+                    promoMessage.type === 'success' ? 'text-emerald-600' : 'text-red-600'
+                  }`}
+                >
+                  {promoMessage.text}
+                </p>
+              )}
+            </div>
+
+            {/* Price Calculations */}
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Subtotal Tiket</span>
+                <span className="font-semibold text-slate-800">
+                  Rp {subtotal.toLocaleString('id-ID')}
+                </span>
+              </div>
+
+              {discountAmount > 0 && (
+                <div className="flex justify-between items-center text-emerald-600 font-semibold">
+                  <span className="flex items-center gap-1">
+                    <Tag className="w-3 h-3" />
+                    Potongan Diskon
+                  </span>
+                  <span>- Rp {discountAmount.toLocaleString('id-ID')}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100 font-bold text-slate-900">
+                <span>Total Tagihan</span>
+                <span className="font-black text-indigo-600 text-lg">
+                  Rp {finalPrice.toLocaleString('id-ID')}
+                </span>
+              </div>
             </div>
 
             {errorMsg && (
@@ -308,3 +435,4 @@ export default function CheckoutPage() {
     </div>
   );
 }
+

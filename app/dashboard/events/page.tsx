@@ -23,6 +23,7 @@ import { useAppStore } from '@/lib/store';
 import { useConfirm } from '@/hooks/useConfirm';
 import EventFormModal, { EventItem } from '@/components/dashboard/EventFormModal';
 import TicketTierDrawer from '@/components/dashboard/TicketTierDrawer';
+import SessionDrawer from '@/components/dashboard/SessionDrawer';
 import EventCard from '@/components/dashboard/EventCard';
 
 function Toast({ msg, type, onClose }: { msg: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -57,6 +58,7 @@ export default function OrganizerEventsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [managingTiersFor, setManagingTiersFor] = useState<EventItem | null>(null);
+  const [managingSessionsFor, setManagingSessionsFor] = useState<EventItem | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
@@ -243,10 +245,33 @@ export default function OrganizerEventsPage() {
               onDelete={() => handleDelete(evt)}
               onToggleStatus={() => handleToggleStatus(evt)}
               onManageTiers={() => setManagingTiersFor(evt)}
+              onManageSessions={() => setManagingSessionsFor(evt)}
             />
           ))}
         </div>
       )}
+
+      {/* Ticket Tier Drawer */}
+      {managingTiersFor && (
+        <TicketTierDrawer
+          event={managingTiersFor}
+          onClose={() => {
+            setManagingTiersFor(null);
+            loadEvents();
+          }}
+        />
+      )}
+
+      {/* Session Drawer for Multi-Day Management */}
+      {managingSessionsFor && (
+        <SessionDrawer
+          isOpen={!!managingSessionsFor}
+          onClose={() => setManagingSessionsFor(null)}
+          eventId={managingSessionsFor.id}
+          eventName={managingSessionsFor.name}
+        />
+      )}
     </div>
   );
 }
+

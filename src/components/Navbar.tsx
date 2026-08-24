@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useGoogleLogin } from '@react-oauth/google';
-import { Ticket, Wallet, QrCode, LayoutDashboard, LogOut, Sparkles, ChevronDown } from 'lucide-react';
+import { Ticket, Wallet, QrCode, LayoutDashboard, LogOut, Sparkles, ChevronDown, Tag, Shield, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import api from '@/lib/api';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -119,13 +119,16 @@ export default function Navbar() {
   const handleDemoLogin = async (email: string, password: string) => {
     setDemoLoading(email);
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', {
+        email,
+        password,
+      });
       if (res.data.success) {
         setUser(res.data.data.user, res.data.data.token);
         setShowDevMenu(false);
       }
-    } catch (err) {
-      console.error('Demo login failed', err);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Login demo gagal.');
     } finally {
       setDemoLoading(null);
     }
@@ -150,10 +153,13 @@ export default function Navbar() {
     }
 
     if (user?.role === 'organizer' || user?.role === 'admin') {
-      links.push({ href: '/dashboard', label: 'Organizer Dashboard', icon: LayoutDashboard });
+      links.push({ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard });
+      links.push({ href: '/dashboard/promos', label: 'Kode Promo', icon: Tag });
+      links.push({ href: '/dashboard/refunds', label: 'Refund & Reschedule', icon: AlertTriangle });
     }
 
     if (user?.role === 'admin') {
+      links.push({ href: '/admin', label: 'Super Admin', icon: Shield });
       links.push({ href: '/gate-scan', label: 'Gate Scan', icon: QrCode });
     }
 

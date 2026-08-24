@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Ticket, RefreshCw, Calendar, MapPin } from 'lucide-react';
+import { Ticket, RefreshCw, Calendar, MapPin, FileDown, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 
 interface TicketItem {
@@ -19,10 +19,17 @@ interface TicketItem {
   issued_at: string;
 }
 
-function DynamicQRCard({ ticket }: { ticket: TicketItem }) {
+function DynamicQRCard({
+  ticket,
+  onRefundClick,
+}: {
+  ticket: TicketItem;
+  onRefundClick?: (ticket: TicketItem) => void;
+}) {
   const [qrToken, setQrToken] = useState<string>('');
   const [expiresIn, setExpiresIn] = useState<number>(30);
   const [loading, setLoading] = useState<boolean>(true);
+  const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
 
   useEffect(() => {
     fetchQrToken();
@@ -50,6 +57,29 @@ function DynamicQRCard({ ticket }: { ticket: TicketItem }) {
       // Quiet UI error handling without console.log
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const res = await api.get(`/tickets/${ticket.id}/pdf`, {
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `e-ticket-${ticket.id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert('Gagal mengunduh PDF tiket. Pastikan server backend sedang aktif.');
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -117,18 +147,40 @@ function DynamicQRCard({ ticket }: { ticket: TicketItem }) {
           </div>
         </div>
 
-        <div className="pt-3 border-t border-slate-100 flex flex-wrap justify-center md:justify-start gap-4 text-xs font-semibold">
-          <div>
-            <span className="block text-[10px] font-bold text-slate-400 uppercase">Nomor Kursi</span>
-            <span className="text-sm font-extrabold text-indigo-600">{ticket.seat_name}</span>
+        <div className="pt-3 border-t border-slate-100 flex flex-wrap justify-between items-center gap-4 text-xs font-semibold">
+          <div className="flex gap-4">
+            <div>
+              <span className="block text-[10px] font-bold text-slate-400 uppercase">Tier / Kursi</span>
+              <span className="text-sm font-extrabold text-indigo-600">{ticket.seat_name}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] font-bold text-slate-400 uppercase">Harga</span>
+              <span className="text-slate-900 font-bold">Rp {ticket.price.toLocaleString('id-ID')}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] font-bold text-slate-400 uppercase">Ticket ID</span>
+              <span className="font-mono text-slate-500">{ticket.id}</span>
+            </div>
           </div>
-          <div>
-            <span className="block text-[10px] font-bold text-slate-400 uppercase">Harga</span>
-            <span className="text-slate-900 font-bold">Rp {ticket.price.toLocaleString('id-ID')}</span>
-          </div>
-          <div>
-            <span className="block text-[10px] font-bold text-slate-400 uppercase">Ticket ID</span>
-            <span className="font-mono text-slate-500">{ticket.id}</span>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-sm disabled:opacity-50"
+              title="Download E-Tiket PDF Resmi"
+            >
+              {downloadingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5 text-indigo-400" />}
+              <span>{downloadingPdf ? 'Mengunduh...' : 'Unduh PDF'}</span>
+            </button>
+            {onRefundClick && ticket.status === 'valid' && (
+              <button
+                onClick={() => onRefundClick(ticket)}
+                className="px-3 py-2 rounded-xl border border-slate-300 hover:border-red-400 hover:bg-red-50 text-slate-600 hover:text-red-700 text-xs font-semibold transition"
+              >
+                Refund / Reschedule
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -136,9 +188,12 @@ function DynamicQRCard({ ticket }: { ticket: TicketItem }) {
   );
 }
 
+import RefundModal from '@/components/RefundModal';
+
 export default function MyTicketsPage() {
   const [tickets, setTickets] = useState<TicketItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refundTarget, setRefundTarget] = useState<TicketItem | null>(null);
 
   useEffect(() => {
     fetchTickets();
@@ -181,10 +236,32 @@ export default function MyTicketsPage() {
       ) : (
         <div className="space-y-6">
           {tickets.map((ticket) => (
-            <DynamicQRCard key={ticket.id} ticket={ticket} />
+            <DynamicQRCard
+              key={ticket.id}
+              ticket={ticket}
+              onRefundClick={(t) => setRefundTarget(t)}
+            />
           ))}
         </div>
+      )}
+
+      {/* Refund / Reschedule Modal */}
+      {refundTarget && (
+        <RefundModal
+          isOpen={!!refundTarget}
+          onClose={() => setRefundTarget(null)}
+          ticket={{
+            id: refundTarget.id,
+            event_name: refundTarget.event_name,
+            tier_name: refundTarget.seat_name,
+            price: refundTarget.price,
+          }}
+          onSuccess={() => {
+            fetchTickets();
+          }}
+        />
       )}
     </div>
   );
 }
+
