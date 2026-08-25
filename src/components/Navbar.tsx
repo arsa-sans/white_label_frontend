@@ -12,10 +12,11 @@ import { segmentConfirmTemplates } from '@/lib/confirmPresets';
 
 // ─── Demo Accounts (for internal dev testing) ──────────────────────────────
 const DEMO_ACCOUNTS = [
-  { label: 'Visitor', email: 'visitor@demo.wl', password: 'Visitor@2026!', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
-  { label: 'Organizer', email: 'organizer@demo.wl', password: 'Organizer@2026!', color: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
+  { label: 'Visitor / Pembeli', email: 'visitor@demo.wl', password: 'Visitor@2026!', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+  { label: 'Organizer Event', email: 'organizer@demo.wl', password: 'Organizer@2026!', color: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
   { label: 'Gate Staff', email: 'gate@demo.wl', password: 'GateStaff@2026!', color: 'text-amber-700 bg-amber-50 border-amber-200' },
-  { label: 'Admin', email: 'admin@demo.wl', password: 'Admin@2026!', color: 'text-rose-700 bg-rose-50 border-rose-200' },
+  { label: 'Vendor Booth', email: 'vendor@demo.wl', password: 'Vendor@2026!', color: 'text-purple-700 bg-purple-50 border-purple-200' },
+  { label: 'Super Admin', email: 'admin@demo.wl', password: 'Admin@2026!', color: 'text-rose-700 bg-rose-50 border-rose-200' },
 ];
 
 function GoogleSignInButton({
@@ -31,7 +32,9 @@ function GoogleSignInButton({
 }) {
   const login = useGoogleLogin({
     onSuccess,
-    onError: () => console.error('Google login failed'),
+    onError: (err) => {
+      console.warn('Google login error or popup closed:', err);
+    },
     flow: 'implicit',
   });
 

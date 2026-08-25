@@ -42,13 +42,42 @@ function GoogleSignInButtonFull({
   );
 }
 
+const DEMO_ACCOUNTS = [
+  { label: 'Visitor / Pembeli', email: 'visitor@demo.wl', password: 'Visitor@2026!', color: 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200' },
+  { label: 'Organizer Event', email: 'organizer@demo.wl', password: 'Organizer@2026!', color: 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border-indigo-200' },
+  { label: 'Gate Staff', email: 'gate@demo.wl', password: 'GateStaff@2026!', color: 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200' },
+  { label: 'Vendor Booth', email: 'vendor@demo.wl', password: 'Vendor@2026!', color: 'text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200' },
+  { label: 'Super Admin', email: 'admin@demo.wl', password: 'Admin@2026!', color: 'text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-200' },
+];
+
 function RegisterPageContent() {
   const router = useRouter();
   const { setUser } = useAppStore();
 
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  const handleRedirectByRole = (role: string) => {
+    switch (role) {
+      case 'admin':
+        router.push('/admin');
+        break;
+      case 'organizer':
+        router.push('/dashboard');
+        break;
+      case 'gate_staff':
+        router.push('/gate-scan');
+        break;
+      case 'vendor':
+        router.push('/booth');
+        break;
+      default:
+        router.push('/events');
+        break;
+    }
+  };
 
   const handleGoogleSuccess = async (tokenResponse: any) => {
     setLoading(true);
@@ -62,12 +91,34 @@ function RegisterPageContent() {
       if (res.data.success) {
         setUser(res.data.data.user, res.data.data.token);
         setSuccessMsg(`Selamat datang, ${res.data.data.user.name}! Mengarahkan ke katalog event...`);
-        setTimeout(() => router.push('/events'), 1200);
+        setTimeout(() => handleRedirectByRole(res.data.data.user.role), 1000);
       }
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Login Google gagal. Coba lagi.');
+      setErrorMsg(err.response?.data?.message || 'Login Google gagal. Coba lagi atau gunakan akun demo di bawah.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async (email: string, password: string, label: string) => {
+    setDemoLoading(email);
+    setErrorMsg('');
+    try {
+      const res = await api.post('/auth/login', {
+        email,
+        password,
+      });
+
+      if (res.data.success) {
+        const u = res.data.data.user;
+        setUser(u, res.data.data.token);
+        setSuccessMsg(`Login berhasil sebagai ${label} (${u.name})! Mengarahkan...`);
+        setTimeout(() => handleRedirectByRole(u.role), 800);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || 'Login akun demo gagal. Pastikan server backend sedang berjalan.');
+    } finally {
+      setDemoLoading(null);
     }
   };
 
@@ -87,7 +138,7 @@ function RegisterPageContent() {
           </div>
           <h1 className="text-3xl font-black text-slate-900">Masuk ke Platform</h1>
           <p className="text-sm text-slate-500 font-medium">
-            Gunakan akun Google Anda untuk masuk atau mendaftar secara instan
+            Gunakan akun Google Anda untuk masuk atau pilih akun pengujian peran di bawah
           </p>
         </div>
 
@@ -123,6 +174,35 @@ function RegisterPageContent() {
           {/* Google Sign In Button (real OAuth) */}
           <GoogleSignInButtonFull onSuccess={handleGoogleSuccess} loading={loading} />
 
+          {/* Divider */}
+          <div className="relative flex items-center justify-center">
+            <div className="border-t border-slate-200 w-full" />
+            <span className="bg-white px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 shrink-0">
+              Atau Masuk Akun Demo (Dev)
+            </span>
+            <div className="border-t border-slate-200 w-full" />
+          </div>
+
+          {/* Dev Demo Account Quick Login Buttons */}
+          <div className="space-y-2">
+            {DEMO_ACCOUNTS.map((acc) => (
+              <button
+                key={acc.email}
+                type="button"
+                disabled={!!demoLoading || loading}
+                onClick={() => handleDemoLogin(acc.email, acc.password, acc.label)}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all shadow-xs disabled:opacity-60 ${acc.color}`}
+              >
+                <span>{acc.label}</span>
+                {demoLoading === acc.email ? (
+                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span className="font-mono text-[10px] opacity-70">{acc.email}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
           <p className="text-center text-[11px] text-slate-400 font-medium">
             Dengan masuk, Anda menyetujui syarat &amp; kebijakan privasi platform ini
           </p>
@@ -143,3 +223,4 @@ export default function RegisterPage() {
     </Suspense>
   );
 }
+
