@@ -60,17 +60,34 @@ function CheckoutContent() {
   const [appliedPromo, setAppliedPromo] = useState<any>(null);
   const [promoMessage, setPromoMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // Load Midtrans Snap.js
+  // Helper to load Midtrans Snap.js script dynamically
+  const loadSnapScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (typeof window !== 'undefined' && window.snap) {
+        resolve(true);
+        return;
+      }
+      const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || 'Mid-client-vuSELOSGIb9GhTe1';
+      const scriptId = 'midtrans-script';
+      let script = document.getElementById(scriptId) as HTMLScriptElement;
+      if (!script) {
+        script = document.createElement('script');
+        script.id = scriptId;
+        script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
+        script.setAttribute('data-client-key', clientKey);
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+      } else {
+        script.onload = () => resolve(true);
+        if (window.snap) resolve(true);
+      }
+    });
+  };
+
+  // Load Midtrans Snap.js on mount
   useEffect(() => {
-    const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || 'Mid-client-vuSELOSGIb9GhTe1';
-    const scriptId = 'midtrans-script';
-    if (!document.getElementById(scriptId)) {
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
-      script.setAttribute('data-client-key', clientKey);
-      document.body.appendChild(script);
-    }
+    loadSnapScript();
   }, []);
 
   // Validate session & start timer on mount
@@ -273,7 +290,8 @@ function CheckoutContent() {
       const resData = orderRes.data.data;
       const orderObj = resData?.order || resData;
       const snapToken = resData?.payment?.snap_token || resData?.snap_token;
-      const isRealSnap = snapToken && !snapToken.startsWith('sim-');
+      const redirectUrl = resData?.payment?.redirect_url || resData?.redirect_url;
+      const gatewayWarning = resData?.gateway_warning || resData?.payment?.gateway_warning;
 
       if (!orderObj?.id) {
         throw new Error('Gagal membuat pesanan di server.');
@@ -282,47 +300,56 @@ function CheckoutContent() {
       // Stop timer after order created
       if (timerRef.current) clearInterval(timerRef.current);
 
-      if (isRealSnap && window.snap) {
-        window.snap.pay(snapToken, {
-          onSuccess: async () => {
-            const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
-              payment_method: 'midtrans',
-            });
-            if (payRes.data.success) {
-              setSuccessOrder(payRes.data.data);
-              clearCart();
-              clearQueueSession();
-            }
-          },
-          onPending: async () => {
-            const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
-              payment_method: 'midtrans',
-            });
-            if (payRes.data.success) {
-              setSuccessOrder(payRes.data.data);
-              clearCart();
-              clearQueueSession();
-            }
-          },
-          onError: () => {
-            setErrorMsg('Pembayaran gagal atau dibatalkan di Midtrans.');
-            setLoading(false);
-          },
-          onClose: () => {
-            setErrorMsg('Jendela pembayaran Midtrans ditutup sebelum selesai.');
-            setLoading(false);
-          },
-        });
-      } else {
-        // Fallback simulation
-        const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
-          payment_method: 'midtrans',
-        });
-        if (payRes.data.success) {
-          setSuccessOrder(payRes.data.data);
-          clearCart();
-          clearQueueSession();
+      // Ensure snap script is loaded
+      await loadSnapScript();
+
+      const isRealSnap = snapToken && !snapToken.startsWith('sim-');
+
+      if (isRealSnap && (window.snap || redirectUrl)) {
+        if (window.snap) {
+          window.snap.pay(snapToken, {
+            onSuccess: async (result: any) => {
+              const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
+                payment_method: 'midtrans',
+                transaction_result: result,
+              });
+              if (payRes.data.success) {
+                setSuccessOrder(payRes.data.data);
+                clearCart();
+                clearQueueSession();
+              }
+            },
+            onPending: async (result: any) => {
+              const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
+                payment_method: 'midtrans',
+                transaction_result: result,
+              });
+              if (payRes.data.success) {
+                setSuccessOrder(payRes.data.data);
+                clearCart();
+                clearQueueSession();
+              }
+            },
+            onError: () => {
+              setErrorMsg('Pembayaran gagal atau dibatalkan di Midtrans Sandbox.');
+              setLoading(false);
+            },
+            onClose: () => {
+              setErrorMsg('Jendela pembayaran Midtrans ditutup sebelum selesai.');
+              setLoading(false);
+            },
+          });
+        } else if (redirectUrl) {
+          // Redirect to Midtrans Sandbox payment URL
+          window.location.href = redirectUrl;
         }
+      } else {
+        // Midtrans Snap Token could not be created from Midtrans Sandbox API
+        setErrorMsg(
+          gatewayWarning ||
+          'Gagal membuka Midtrans Sandbox: Token Snap tidak valid. Silakan periksa MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY di file .env backend & frontend.'
+        );
+        setLoading(false);
       }
     } catch (err: any) {
       const serverMsg = err.response?.data?.message || err.message;
