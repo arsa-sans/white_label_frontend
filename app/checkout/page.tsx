@@ -67,7 +67,7 @@ function CheckoutContent() {
         resolve(true);
         return;
       }
-      const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || 'Mid-client-vuSELOSGIb9GhTe1';
+      const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || 'Mid-client-5xCjb-Ee9PqxXyWI';
       const scriptId = 'midtrans-script';
       let script = document.getElementById(scriptId) as HTMLScriptElement;
       if (!script) {
