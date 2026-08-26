@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, Calendar, MapPin, Ticket, ShieldCheck, Zap, Sparkles } from 'lucide-react';
+import { Search, Calendar, MapPin, ArrowRight, ShieldCheck, Zap, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 
 interface EventItem {
@@ -176,8 +176,8 @@ export default function EventsCatalogPage() {
                       href={`/event/${evt.id}`}
                       className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all"
                     >
-                      <Ticket className="w-3.5 h-3.5" />
-                      Pilih Kursi
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      Lihat Selengkapnya
                     </Link>
                   </div>
                 </div>

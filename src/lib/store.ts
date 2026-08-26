@@ -36,6 +36,8 @@ interface AppState {
   isHydrated: boolean;
   cart: CartItem[];
   activeEventId: string | null;
+  queueSessionId: string | null;
+  checkoutExpiresAt: string | null;
   setUser: (user: User | null, token?: string) => void;
   logout: () => void;
   setHydrated: (hydrated: boolean) => void;
@@ -43,6 +45,8 @@ interface AppState {
   setCartItemQuantity: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
   clearCart: () => void;
   setActiveEventId: (eventId: string | null) => void;
+  setQueueSession: (sessionId: string, expiresAt: string) => void;
+  clearQueueSession: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -51,6 +55,8 @@ export const useAppStore = create<AppState>((set) => ({
   isHydrated: false,
   cart: [],
   activeEventId: null,
+  queueSessionId: null,
+  checkoutExpiresAt: null,
 
   setUser: (user, token) => {
     if (token) {
@@ -108,6 +114,8 @@ export const useAppStore = create<AppState>((set) => ({
 
   clearCart: () => set({ cart: [] }),
   setActiveEventId: (activeEventId) => set({ activeEventId }),
+  setQueueSession: (queueSessionId, checkoutExpiresAt) => set({ queueSessionId, checkoutExpiresAt }),
+  clearQueueSession: () => set({ queueSessionId: null, checkoutExpiresAt: null }),
 }));
 
 export const isOrganizer = (user: User | null) => user?.role === 'organizer' || user?.role === 'admin';
