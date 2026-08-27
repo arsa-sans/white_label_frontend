@@ -242,6 +242,7 @@ function CheckoutContent() {
     setPromoMessage(null);
   };
 
+  // ── Primary: Pay via Official Midtrans Snap Sandbox ─────────────────────
   const handlePayClick = async () => {
     if (totalTickets === 0) {
       setErrorMsg('Pilih minimal 1 tiket sebelum melanjutkan.');
@@ -256,8 +257,8 @@ function CheckoutContent() {
     const isConfirmed = await confirm({
       segmentTag: 'KONFIRMASI PEMBAYARAN',
       title: 'Konfirmasi Pembelian Tiket',
-      message: `Total tagihan Anda adalah Rp ${finalPrice.toLocaleString('id-ID')} untuk ${totalTickets} tiket.${appliedPromo ? ` (Termasuk hemat diskon Rp ${discountAmount.toLocaleString('id-ID')})` : ''} Lanjutkan ke pembayaran Midtrans?`,
-      confirmText: 'Bayar Sekarang',
+      message: `Total tagihan Anda adalah Rp ${finalPrice.toLocaleString('id-ID')} untuk ${totalTickets} tiket.${appliedPromo ? ` (Termasuk hemat diskon Rp ${discountAmount.toLocaleString('id-ID')})` : ''} Lanjutkan ke gerbang pembayaran resmi Midtrans Sandbox?`,
+      confirmText: 'Buka Midtrans Snap',
       cancelText: 'Batal',
       variant: 'info',
     });
@@ -297,7 +298,7 @@ function CheckoutContent() {
         throw new Error('Gagal membuat pesanan di server.');
       }
 
-      // Stop timer after order created
+      // Stop timer after order is created
       if (timerRef.current) clearInterval(timerRef.current);
 
       // Ensure snap script is loaded
@@ -340,11 +341,10 @@ function CheckoutContent() {
             },
           });
         } else if (redirectUrl) {
-          // Redirect to Midtrans Sandbox payment URL
+          // Direct popup window or redirect to Midtrans Sandbox payment URL
           window.location.href = redirectUrl;
         }
       } else {
-        // Midtrans Snap Token could not be created from Midtrans Sandbox API
         setErrorMsg(
           gatewayWarning ||
           'Gagal membuka Midtrans Sandbox: Token Snap tidak valid. Silakan periksa MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY di file .env backend & frontend.'
@@ -354,6 +354,74 @@ function CheckoutContent() {
     } catch (err: any) {
       const serverMsg = err.response?.data?.message || err.message;
       setErrorMsg(serverMsg || 'Proses pembayaran gagal. Silakan coba lagi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Secondary: Sandbox Dummy Simulation (Instant Demo / Testing) ───────────
+  const handleDummyPay = async () => {
+    if (totalTickets === 0) {
+      setErrorMsg('Pilih minimal 1 tiket sebelum memulai simulasi.');
+      return;
+    }
+
+    const isConfirmed = await confirm({
+      segmentTag: 'MODE TESTING / DEMO',
+      title: 'Simulasi Sandbox Dummy',
+      message: `Jalankan simulasi pembayaran instan untuk total Rp ${finalPrice.toLocaleString('id-ID')} (${totalTickets} tiket)? Ini akan menerbitkan tiket QR valid untuk testing/demo.`,
+      confirmText: 'Mulai Simulasi Bayar',
+      cancelText: 'Batal',
+      variant: 'warning',
+    });
+
+    if (!isConfirmed) return;
+
+    setLoading(true);
+    setErrorMsg('');
+
+    try {
+      const idempotencyKey = `idemp-sim-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const orderRes = await api.post(
+        '/payments/orders',
+        {
+          event_id: eventId,
+          items: eventCartItems.map((item) => ({
+            tier_id: item.tier_id,
+            quantity: item.quantity,
+          })),
+          promo_code: appliedPromo ? appliedPromo.promo?.code || promoInput.toUpperCase() : undefined,
+          payment_gateway: 'SANDBOX_SIMULATION',
+          customer_name: user?.name,
+          customer_email: user?.email,
+        },
+        {
+          headers: { 'x-idempotency-key': idempotencyKey },
+        }
+      );
+
+      const resData = orderRes.data.data;
+      const orderObj = resData?.order || resData;
+
+      if (!orderObj?.id) {
+        throw new Error('Gagal membuat pesanan di server.');
+      }
+
+      if (timerRef.current) clearInterval(timerRef.current);
+
+      // Settle payment instantly in dummy mode
+      const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
+        payment_method: 'sandbox_dummy',
+      });
+
+      if (payRes.data.success) {
+        setSuccessOrder(payRes.data.data);
+        clearCart();
+        clearQueueSession();
+      }
+    } catch (err: any) {
+      const serverMsg = err.response?.data?.message || err.message;
+      setErrorMsg(serverMsg || 'Simulasi pembayaran gagal.');
     } finally {
       setLoading(false);
     }
@@ -680,19 +748,30 @@ function CheckoutContent() {
               </div>
             )}
 
-            <button
-              onClick={handlePayClick}
-              disabled={loading || totalTickets === 0 || timerExpired}
-              className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white font-extrabold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {loading ? 'Memproses...' : timerExpired ? 'Waktu Habis' : 'Bayar Sekarang'}
-            </button>
+            <div className="space-y-2.5 pt-2">
+              <button
+                onClick={handlePayClick}
+                disabled={loading || totalTickets === 0 || timerExpired}
+                className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white font-extrabold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {loading ? 'Memproses Midtrans...' : timerExpired ? 'Waktu Habis' : 'Bayar via Midtrans Sandbox'}
+              </button>
 
-            <div className="text-center">
+              <button
+                onClick={handleDummyPay}
+                disabled={loading || totalTickets === 0 || timerExpired}
+                className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                <span>🧪</span>
+                <span>Mode Testing: Simulasi Sandbox Dummy</span>
+              </button>
+            </div>
+
+            <div className="text-center pt-1">
               <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 font-medium">
                 <ShieldCheck className="w-3 h-3" />
-                Pembayaran diproses oleh Midtrans Sandbox
+                Mendukung Midtrans Snap Resmi &amp; Sandbox Dummy Testing
               </span>
             </div>
           </div>
