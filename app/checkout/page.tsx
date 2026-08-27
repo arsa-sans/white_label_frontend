@@ -757,22 +757,6 @@ function CheckoutContent() {
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 {loading ? 'Memproses Midtrans...' : timerExpired ? 'Waktu Habis' : 'Bayar via Midtrans Sandbox'}
               </button>
-
-              <button
-                onClick={handleDummyPay}
-                disabled={loading || totalTickets === 0 || timerExpired}
-                className="w-full py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                <span>🧪</span>
-                <span>Mode Testing: Simulasi Sandbox Dummy</span>
-              </button>
-            </div>
-
-            <div className="text-center pt-1">
-              <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 font-medium">
-                <ShieldCheck className="w-3 h-3" />
-                Mendukung Midtrans Snap Resmi &amp; Sandbox Dummy Testing
-              </span>
             </div>
           </div>
         </div>
