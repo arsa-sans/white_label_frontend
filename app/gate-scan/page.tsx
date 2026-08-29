@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { QrCode, CheckCircle2, XCircle, AlertOctagon, Wifi, WifiOff, RefreshCw, Scan } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { QrCode, CheckCircle2, XCircle, AlertOctagon, Wifi, WifiOff, RefreshCw, Scan, Bell } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 import api from '@/lib/api';
 import { useConfirm } from '@/hooks/useConfirm';
 import { segmentConfirmTemplates } from '@/lib/confirmPresets';
@@ -25,6 +26,8 @@ export default function GateScanPage() {
   const [scanLogs, setScanLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [remoteNotifications, setRemoteNotifications] = useState<Array<{ id: number; msg: string; type: string }>>([]);
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     // Check connection state
@@ -40,10 +43,69 @@ export default function GateScanPage() {
       setIsOnline(navigator.onLine);
     }, 15000);
 
+    // Initialize Socket.IO connection for real-time notifications
+    const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+    const serverUrl = rawBaseUrl.replace(/\/api\/v1\/?$/, '');
+
+    const socket = io(serverUrl, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 10,
+    });
+
+    socket.on('connect', () => {
+      console.log('[Socket.IO] Connected to backend WebSocket');
+    });
+
+    // Listen for gate scan results from other devices (mobile, other web stations)
+    socket.on('gate:scan_result', (data: any) => {
+      const deviceId = data.gate_device_id || '';
+      // Only show notification for scans from OTHER devices
+      if (deviceId !== 'GATE-WEB-01') {
+        const result = data.result || 'unknown';
+        const ticketId = data.ticket_id || '';
+        const staffEmail = data.staff_email || '';
+        const isValid = result === 'valid';
+
+        const notification = {
+          id: Date.now(),
+          msg: isValid
+            ? `✓ Tiket ${ticketId} validated by ${staffEmail} (${deviceId})`
+            : `✗ Scan ${result}: ${ticketId} (${deviceId})`,
+          type: isValid ? 'success' : 'warning',
+        };
+
+        setRemoteNotifications((prev) => [notification, ...prev].slice(0, 10));
+
+        // Also add to scan logs for tracking
+        setScanLogs((prev) => [
+          {
+            id: Date.now(),
+            ticket_id: ticketId || 'REMOTE',
+            seat: data.seat_name || '-',
+            result: result,
+            time: new Date().toLocaleTimeString(),
+            remote: true,
+            device: deviceId,
+          },
+          ...prev,
+        ]);
+
+        // Auto-dismiss notification after 5 seconds
+        setTimeout(() => {
+          setRemoteNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+        }, 5000);
+      }
+    });
+
+    socketRef.current = socket;
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       clearInterval(interval);
+      socket.disconnect();
     };
   }, []);
 
@@ -56,7 +118,7 @@ export default function GateScanPage() {
 
     try {
       if (isOnline) {
-        const res = await api.post('/gate/validate', {
+        const res = await api.post('/gate/scan', {
           qr_token: token,
           gate_device_id: 'GATE-WEB-01',
         });
@@ -154,6 +216,31 @@ export default function GateScanPage() {
               <p className="text-xl font-bold">TIKET INVALID / EXPIRED</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Real-Time Remote Scan Notifications (from mobile/other devices) */}
+      {remoteNotifications.length > 0 && (
+        <div className="fixed top-20 right-4 z-40 space-y-2 max-w-sm">
+          {remoteNotifications.map((notif) => (
+            <div
+              key={notif.id}
+              className={`flex items-center gap-2 px-4 py-3 rounded-2xl shadow-lg border text-xs font-bold animate-in slide-in-from-right ${
+                notif.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
+              }`}
+            >
+              <Bell className="w-4 h-4 shrink-0" />
+              <span>{notif.msg}</span>
+              <button
+                onClick={() => setRemoteNotifications((prev) => prev.filter((n) => n.id !== notif.id))}
+                className="ml-auto font-black text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -267,7 +354,9 @@ export default function GateScanPage() {
                   className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
                 >
                   <div>
-                    <span className="font-bold text-slate-900 block">Kursi: {log.seat}</span>
+                    <span className="font-bold text-slate-900 block">
+                      {log.remote ? `📡 ${log.device}` : ''} Kursi: {log.seat}
+                    </span>
                     <span className="text-[10px] text-slate-400 font-medium">{log.time} — {log.ticket_id}</span>
                   </div>
                   <span
