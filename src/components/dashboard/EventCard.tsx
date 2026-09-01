@@ -77,6 +77,34 @@ export default function EventCard({
           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-slate-500">
             <MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{event.location}</span>
           </div>
+          {event.sale_start_at && (
+            <div className="mt-2 text-[10px] font-semibold">
+              {(() => {
+                const now = new Date();
+                const start = new Date(event.sale_start_at);
+                const end = event.sale_end_at ? new Date(event.sale_end_at) : null;
+                if (now < start) {
+                  return (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                      ⏰ Sale Buka: {start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}, {start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  );
+                } else if (end && now > end) {
+                  return (
+                    <span className="px-2 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200">
+                      🔒 Sale Ditutup
+                    </span>
+                  );
+                } else {
+                  return (
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      🟢 Sale Sedang Buka
+                    </span>
+                  );
+                }
+              })()}
+            </div>
+          )}
         </div>
 
         {/* Stats */}

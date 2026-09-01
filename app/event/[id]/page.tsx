@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronUp,
+  Timer,
+  Lock,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
@@ -48,6 +50,9 @@ interface EventDetail {
   venue_map_url?: string;
   start_date: string;
   end_date: string;
+  sale_start_at?: string;
+  sale_end_at?: string;
+  sale_status?: 'upcoming' | 'open' | 'closed';
   capacity: number;
   banner_url: string;
   poster_url?: string;
@@ -55,6 +60,59 @@ interface EventDetail {
   terms_conditions?: string;
   price_min?: number;
   price_max?: number;
+}
+
+function CountdownTimer({ targetDate, onComplete }: { targetDate: string; onComplete?: () => void }) {
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(
+    null
+  );
+
+  useEffect(() => {
+    const calculateTime = () => {
+      const difference = new Date(targetDate).getTime() - new Date().getTime();
+      if (difference <= 0) {
+        setTimeLeft(null);
+        if (onComplete) onComplete();
+        return;
+      }
+
+      setTimeLeft({
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((difference / 1000 / 60) % 60),
+        seconds: Math.floor((difference / 1000) % 60),
+      });
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate, onComplete]);
+
+  if (!timeLeft) {
+    return null;
+  }
+
+  return (
+    <div className="grid grid-cols-4 gap-2 text-center max-w-sm mx-auto">
+      <div className="bg-slate-900 text-white rounded-2xl p-2.5 shadow-md">
+        <span className="text-xl font-black block">{String(timeLeft.days).padStart(2, '0')}</span>
+        <span className="text-[9px] uppercase font-bold text-slate-400">Hari</span>
+      </div>
+      <div className="bg-slate-900 text-white rounded-2xl p-2.5 shadow-md">
+        <span className="text-xl font-black block">{String(timeLeft.hours).padStart(2, '0')}</span>
+        <span className="text-[9px] uppercase font-bold text-slate-400">Jam</span>
+      </div>
+      <div className="bg-slate-900 text-white rounded-2xl p-2.5 shadow-md">
+        <span className="text-xl font-black block">{String(timeLeft.minutes).padStart(2, '0')}</span>
+        <span className="text-[9px] uppercase font-bold text-slate-400">Menit</span>
+      </div>
+      <div className="bg-indigo-600 text-white rounded-2xl p-2.5 shadow-md">
+        <span className="text-xl font-black block animate-pulse">{String(timeLeft.seconds).padStart(2, '0')}</span>
+        <span className="text-[9px] uppercase font-bold text-indigo-200">Detik</span>
+      </div>
+    </div>
+  );
 }
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -68,10 +126,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, [eventId]);
+  const [saleStatus, setSaleStatus] = useState<'upcoming' | 'open' | 'closed'>('open');
 
   const fetchData = async () => {
     setLoading(true);
@@ -81,7 +136,20 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         api.get(`/events/${eventId}/tiers`),
         api.get(`/events/${eventId}/sessions`),
       ]);
-      if (evtRes.data.success) setEvent(evtRes.data.data);
+      if (evtRes.data.success) {
+        const evtData: EventDetail = evtRes.data.data;
+        setEvent(evtData);
+
+        // Determine sale status
+        const now = new Date();
+        if (evtData.sale_start_at && now < new Date(evtData.sale_start_at)) {
+          setSaleStatus('upcoming');
+        } else if (evtData.sale_end_at && now > new Date(evtData.sale_end_at)) {
+          setSaleStatus('closed');
+        } else {
+          setSaleStatus('open');
+        }
+      }
       if (tierRes.data.success) setTiers(tierRes.data.data);
       if (sessRes.data.success) setSessions(sessRes.data.data);
     } catch {
@@ -91,9 +159,13 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  useEffect(() => {
+    fetchData();
+  }, [eventId]);
+
   const handleBuyClick = () => {
     if (!user) {
-      router.push('/register');
+      router.push('/login');
       return;
     }
     router.push(`/event/${eventId}/queue`);
@@ -150,6 +222,38 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
+      {/* Sale Countdown Banner if Sale is Upcoming */}
+      {saleStatus === 'upcoming' && event.sale_start_at && (
+        <div className="bg-gradient-to-r from-amber-500 via-indigo-600 to-purple-700 text-white rounded-3xl p-6 sm:p-8 shadow-xl text-center space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/20 text-xs font-extrabold uppercase tracking-wider">
+            <Timer className="w-4 h-4 animate-spin text-amber-300" />
+            Penjualan Tiket Akan Segera Dibuka
+          </div>
+          <h2 className="text-lg sm:text-xl font-black">
+            Penjualan tiket dibuka pada{' '}
+            {new Date(event.sale_start_at).toLocaleDateString('id-ID', {
+              dateStyle: 'full',
+            })}{' '}
+            pukul {new Date(event.sale_start_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+          </h2>
+          <CountdownTimer targetDate={event.sale_start_at} onComplete={() => setSaleStatus('open')} />
+          <p className="text-xs text-indigo-100 font-medium max-w-md mx-auto">
+            Pastikan Anda sudah login akun Visitor agar siap masuk antrian saat penjualan dibuka.
+          </p>
+        </div>
+      )}
+
+      {/* Sale Closed Banner */}
+      {saleStatus === 'closed' && (
+        <div className="bg-slate-900 text-white rounded-3xl p-6 shadow-xl text-center space-y-2">
+          <div className="inline-flex items-center gap-2 text-rose-400 font-bold text-sm">
+            <Lock className="w-4 h-4" />
+            Penjualan Tiket Telah Ditutup
+          </div>
+          <p className="text-xs text-slate-400">Periode penjualan tiket event ini sudah berakhir.</p>
+        </div>
+      )}
+
       {/* Event Info Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Main Content */}
@@ -157,7 +261,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           {/* Description */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-xs space-y-4">
             <h2 className="text-lg font-bold text-slate-900">Tentang Event</h2>
-            <p className="text-sm text-slate-600 leading-relaxed">{event.description}</p>
+            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{event.description}</p>
           </div>
 
           {/* Guest Stars */}
@@ -168,7 +272,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                   <Star className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Bintang Tamu & Lineup</h2>
+                  <h2 className="text-lg font-bold text-slate-900">Bintang Tamu &amp; Lineup</h2>
                   <p className="text-xs text-slate-500">Artis dan performer yang akan tampil</p>
                 </div>
               </div>
@@ -200,7 +304,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Jadwal & Lineup</h2>
+                  <h2 className="text-lg font-bold text-slate-900">Jadwal &amp; Lineup</h2>
                   <p className="text-xs text-slate-500">Jadwal acara per hari</p>
                 </div>
               </div>
@@ -286,7 +390,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                   <div className="p-2.5 rounded-xl bg-slate-100 text-slate-600 border border-slate-200">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
-                  <h2 className="text-lg font-bold text-slate-900">Syarat & Ketentuan</h2>
+                  <h2 className="text-lg font-bold text-slate-900">Syarat &amp; Ketentuan</h2>
                 </div>
                 {showTerms ? (
                   <ChevronUp className="w-5 h-5 text-slate-400" />
@@ -296,7 +400,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               </button>
               {showTerms && (
                 <div className="px-6 pb-6 pt-0">
-                  <p className="text-sm text-slate-600 leading-relaxed">{event.terms_conditions}</p>
+                  <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{event.terms_conditions}</p>
                 </div>
               )}
             </div>
@@ -307,14 +411,14 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         <div className="space-y-6">
           {/* Date & Time */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Waktu & Tempat</h3>
+            <h3 className="text-base font-bold text-slate-900">Waktu &amp; Tempat</h3>
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 mt-0.5">
                   <Calendar className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Tanggal & Waktu</span>
+                  <span className="block text-[10px] text-slate-400 font-bold uppercase">Tanggal &amp; Waktu Event</span>
                   <span className="text-xs font-bold text-slate-800">
                     {new Date(event.start_date).toLocaleString('id-ID', {
                       dateStyle: 'full',
@@ -417,11 +521,27 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           </div>
           <button
             onClick={handleBuyClick}
-            disabled={totalAvailable <= 0}
+            disabled={totalAvailable <= 0 || saleStatus === 'upcoming' || saleStatus === 'closed'}
             className="flex items-center gap-2 px-8 py-3.5 rounded-2xl text-sm font-extrabold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Ticket className="w-4 h-4" />
-            {totalAvailable <= 0 ? 'Sold Out' : 'Beli Tiket'}
+            {saleStatus === 'upcoming' ? (
+              <>
+                <Timer className="w-4 h-4 animate-spin" />
+                Menunggu Penjualan Dibuka
+              </>
+            ) : saleStatus === 'closed' ? (
+              <>
+                <Lock className="w-4 h-4" />
+                Penjualan Ditutup
+              </>
+            ) : totalAvailable <= 0 ? (
+              'Sold Out'
+            ) : (
+              <>
+                <Ticket className="w-4 h-4" />
+                Beli Tiket
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useGoogleLogin } from '@react-oauth/google';
-import { Ticket, Wallet, QrCode, LayoutDashboard, LogOut, Sparkles, ChevronDown, Tag, Shield, AlertTriangle } from 'lucide-react';
+import { Ticket, Wallet, QrCode, LayoutDashboard, LogOut, Sparkles, ChevronDown, Tag, Shield, AlertTriangle, Calendar } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import api from '@/lib/api';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -155,7 +155,7 @@ export default function Navbar() {
       links.push({ href: '/payment-methods', label: 'Metode Pembayaran', icon: Wallet });
     }
 
-    if (user?.role === 'organizer' || user?.role === 'admin') {
+    if (user?.role === 'organizer') {
       links.push({ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard });
       links.push({ href: '/dashboard/promos', label: 'Kode Promo', icon: Tag });
       links.push({ href: '/dashboard/refunds', label: 'Refund & Reschedule', icon: AlertTriangle });
@@ -163,7 +163,6 @@ export default function Navbar() {
 
     if (user?.role === 'admin') {
       links.push({ href: '/admin', label: 'Super Admin', icon: Shield });
-      links.push({ href: '/gate-scan', label: 'Gate Scan', icon: QrCode });
     }
 
     return links;
@@ -232,48 +231,27 @@ export default function Navbar() {
               </div>
             ) : (
               <>
-                {/* Google Sign In (primary) */}
+                <Link
+                  href="/login"
+                  className="px-3 py-2 text-xs font-bold text-slate-700 hover:text-indigo-600 transition-colors"
+                >
+                  Masuk
+                </Link>
+
+                <Link
+                  href="/register"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all"
+                >
+                  Daftar
+                </Link>
+
+                {/* Google Sign In */}
                 <GoogleSignInButton
                   onSuccess={handleGoogleSuccess}
-                  label="Masuk dengan Google"
-                  variant="primary"
+                  label="Google"
+                  variant="outline"
                   disabled={loading}
                 />
-
-                {/* Dev Access dropdown */}
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => setShowDevMenu((v) => !v)}
-                    title="Internal Dev Access"
-                    className="flex items-center gap-1 px-2.5 py-2 rounded-xl text-[10px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                  >
-                    Dev
-                    <ChevronDown className={`w-3 h-3 transition-transform ${showDevMenu ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {showDevMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 space-y-2 z-50">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1 pb-1 border-b border-slate-100">
-                        Internal Dev Access
-                      </p>
-                      {DEMO_ACCOUNTS.map((acc) => (
-                        <button
-                          key={acc.email}
-                          disabled={demoLoading === acc.email}
-                          onClick={() => handleDemoLogin(acc.email, acc.password)}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-semibold transition-all hover:shadow-sm disabled:opacity-60 ${acc.color}`}
-                        >
-                          <span>{acc.label}</span>
-                          {demoLoading === acc.email ? (
-                            <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <span className="font-mono text-[10px] opacity-60">{acc.email}</span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </>
             )}
           </div>

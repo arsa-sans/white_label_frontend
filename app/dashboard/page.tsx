@@ -1,8 +1,26 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, Ticket, QrCode, RefreshCw, CircleDollarSign, Activity, CheckCircle2, Store, UserCheck, Plus, Trash2, Calendar, FileSpreadsheet, ChevronDown, Loader2 } from 'lucide-react';
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Ticket,
+  QrCode,
+  RefreshCw,
+  CircleDollarSign,
+  Activity,
+  CheckCircle2,
+  Store,
+  UserCheck,
+  Plus,
+  Trash2,
+  Calendar,
+  FileSpreadsheet,
+  ChevronDown,
+  Loader2,
+  ArrowRight,
+} from 'lucide-react';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
 import KpiCard from '@/components/dashboard/KpiCard';
@@ -20,11 +38,24 @@ interface DashboardMetrics {
   gate_scan_logs_recent?: any[];
 }
 
+interface EventOption {
+  id: string;
+  name: string;
+  category: string;
+  location: string;
+  status: string;
+}
+
 export default function DashboardPage() {
   const { user, token } = useAppStore();
   const router = useRouter();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Events list & selector
+  const [myEvents, setMyEvents] = useState<EventOption[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [eventsLoading, setEventsLoading] = useState(true);
 
   // Tab state: 'analytics' | 'staff' | 'vendors'
   const [activeTab, setActiveTab] = useState<'analytics' | 'staff' | 'vendors'>('analytics');
@@ -43,9 +74,60 @@ export default function DashboardPage() {
   const [staffRole, setStaffRole] = useState<'gate_staff' | 'vendor'>('gate_staff');
   const [staffError, setStaffError] = useState('');
 
+  const fetchEvents = useCallback(async () => {
+    setEventsLoading(true);
+    try {
+      const res = await api.get('/events/me');
+      if (res.data.success) {
+        const list: EventOption[] = res.data.data;
+        setMyEvents(list);
+        if (list.length > 0) {
+          setSelectedEventId((prev) => (prev && list.some((e) => e.id === prev) ? prev : list[0].id));
+        } else {
+          setSelectedEventId(null);
+        }
+      }
+    } catch {
+      // Quiet error
+    } finally {
+      setEventsLoading(false);
+    }
+  }, []);
+
+  const fetchMetrics = useCallback(async () => {
+    try {
+      const res = await api.get('/analytics/dashboard');
+      if (res.data.success) {
+        setMetrics(res.data.data);
+      }
+    } catch {
+      // Quiet error
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchStaff = useCallback(async (eventId: string | null) => {
+    if (!eventId) {
+      setStaffList([]);
+      return;
+    }
+    setStaffLoading(true);
+    try {
+      const res = await api.get(`/events/${eventId}/staff`);
+      if (res.data.success) {
+        setStaffList(res.data.data);
+      }
+    } catch {
+      // Quiet error
+    } finally {
+      setStaffLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!token) {
-      router.replace('/events');
+      router.replace('/login');
       return;
     }
 
@@ -54,11 +136,17 @@ export default function DashboardPage() {
       return;
     }
 
+    fetchEvents();
     fetchMetrics();
-    fetchStaff();
     const interval = setInterval(fetchMetrics, 30000);
     return () => clearInterval(interval);
-  }, [user, token, router]);
+  }, [user, token, router, fetchEvents, fetchMetrics]);
+
+  useEffect(() => {
+    if (selectedEventId) {
+      fetchStaff(selectedEventId);
+    }
+  }, [selectedEventId, fetchStaff]);
 
   const handleExportExcel = async (type: 'sales' | 'gate-logs' | 'booth-transactions', filename: string) => {
     setExportingType(type);
@@ -78,42 +166,19 @@ export default function DashboardPage() {
       link.click();
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (err: any) {
+    } catch {
       alert('Gagal mengekspor laporan Excel. Pastikan data tersedia.');
     } finally {
       setExportingType(null);
     }
   };
 
-  const fetchMetrics = async () => {
-    try {
-      const res = await api.get('/analytics/dashboard');
-      if (res.data.success) {
-        setMetrics(res.data.data);
-      }
-    } catch {
-      // Quiet error handling
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStaff = async () => {
-    setStaffLoading(true);
-    try {
-      const res = await api.get('/events/evt-001/staff');
-      if (res.data.success) {
-        setStaffList(res.data.data);
-      }
-    } catch {
-      // Quiet error handling
-    } finally {
-      setStaffLoading(false);
-    }
-  };
-
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedEventId) {
+      setStaffError('Pilih event terlebih dahulu');
+      return;
+    }
     if (!staffName || !staffEmail || !staffPassword) {
       setStaffError('Semua kolom wajib diisi');
       return;
@@ -121,7 +186,7 @@ export default function DashboardPage() {
 
     setStaffError('');
     try {
-      const res = await api.post('/events/evt-001/staff', {
+      const res = await api.post(`/events/${selectedEventId}/staff`, {
         name: staffName,
         email: staffEmail,
         password: staffPassword,
@@ -141,18 +206,20 @@ export default function DashboardPage() {
   };
 
   const handleRemoveStaff = async (staffId: string) => {
+    if (!selectedEventId) return;
     try {
-      const res = await api.delete(`/events/evt-001/staff/${staffId}`);
+      const res = await api.delete(`/events/${selectedEventId}/staff/${staffId}`);
       if (res.data.success) {
         setStaffList((prev) => prev.filter((s) => s.id !== staffId && s.user_id !== staffId));
       }
     } catch {
-      // Quiet error handling
+      // Quiet error
     }
   };
 
   const gateStaffMembers = staffList.filter((s) => s.role === 'gate_staff' || !s.role);
   const vendorMembers = staffList.filter((s) => s.role === 'vendor');
+  const selectedEvent = myEvents.find((e) => e.id === selectedEventId);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -164,11 +231,38 @@ export default function DashboardPage() {
             Organizer Dashboard
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Pantau metrik penjualan tiket, kelola petugas gate staff, dan vendor booth.
+            Pantau metrik penjualan tiket, kelola petugas gate staff, dan kelola event Anda.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Kelola Event Button */}
+          <button
+            onClick={() => router.push('/dashboard/events')}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            Kelola / Buat Event ({myEvents.length})
+          </button>
+
+          {/* Event Selector */}
+          {myEvents.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-xs">
+              <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <select
+                value={selectedEventId || ''}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                className="text-xs font-bold text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
+              >
+                {myEvents.map((evt) => (
+                  <option key={evt.id} value={evt.id}>
+                    {evt.name} ({evt.status})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex bg-slate-100 p-1 rounded-xl">
             <button
               onClick={() => setActiveTab('analytics')}
@@ -184,7 +278,7 @@ export default function DashboardPage() {
                 activeTab === 'staff' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500'
               }`}
             >
-              Kelola Gate Staff ({gateStaffMembers.length})
+              Gate Staff ({gateStaffMembers.length})
             </button>
             <button
               onClick={() => setActiveTab('vendors')}
@@ -192,7 +286,7 @@ export default function DashboardPage() {
                 activeTab === 'vendors' ? 'bg-white text-amber-600 shadow-xs' : 'text-slate-500'
               }`}
             >
-              Kelola Vendor ({vendorMembers.length})
+              Vendor ({vendorMembers.length})
             </button>
           </div>
 
@@ -243,7 +337,11 @@ export default function DashboardPage() {
           </div>
 
           <button
-            onClick={() => { fetchMetrics(); fetchStaff(); }}
+            onClick={() => {
+              fetchEvents();
+              fetchMetrics();
+              if (selectedEventId) fetchStaff(selectedEventId);
+            }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors shadow-xs"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -252,30 +350,59 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* No Events Banner */}
+      {!eventsLoading && myEvents.length === 0 && (
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
+          <div className="space-y-2 text-center sm:text-left">
+            <h2 className="text-xl font-extrabold">Anda Belum Memiliki Event</h2>
+            <p className="text-indigo-100 text-xs max-w-md">
+              Buat event pertama Anda, atur tier tiket, jadwal penjualan, serta tugaskan petugas gate staff.
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/dashboard/events')}
+            className="px-6 py-3 rounded-2xl bg-white text-indigo-600 font-black text-xs hover:bg-indigo-50 shadow-lg transition-all flex items-center gap-2 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            Buat Event Sekarang <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {activeTab === 'staff' ? (
         /* Staff Management Section */
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-xs">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <UserCheck className="w-5 h-5 text-indigo-600" />
                   Pengelolaan Akun Gate Staff Event
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Daftarkan gate staff. Akun ini digunakan untuk login di mobile scanner saat pemeriksaan tiket pengunjung.
+                  {selectedEvent
+                    ? `Daftarkan gate staff untuk event "${selectedEvent.name}". Gate staff hanya dapat memindai tiket untuk event ini.`
+                    : 'Pilih event terlebih dahulu untuk mengelola petugas gate staff.'}
                 </p>
               </div>
               <button
-                onClick={() => { setStaffRole('gate_staff'); setAddStaffOpen(true); }}
-                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md shadow-indigo-600/20 flex items-center gap-1.5"
+                disabled={!selectedEventId}
+                onClick={() => {
+                  setStaffRole('gate_staff');
+                  setAddStaffOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md shadow-indigo-600/20 flex items-center gap-1.5 disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
                 Tambah Gate Staff
               </button>
             </div>
 
-            {staffLoading ? (
+            {!selectedEventId ? (
+              <div className="text-center py-10 text-xs text-slate-400 font-medium">
+                Silakan buat event terlebih dahulu untuk menugaskan gate staff.
+              </div>
+            ) : staffLoading ? (
               <div className="text-center py-10 text-xs text-slate-400 font-medium">Memuat data staff...</div>
             ) : gateStaffMembers.length === 0 ? (
               <div className="text-center py-10 text-xs text-slate-400 font-medium">
@@ -284,7 +411,7 @@ export default function DashboardPage() {
             ) : (
               <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
                 {gateStaffMembers.map((s) => (
-                  <div key={s.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
+                  <div key={s.id || s.user_id} className="p-4 flex items-center justify-between hover:bg-slate-50">
                     <div>
                       <span className="font-extrabold text-sm text-slate-900 block">{s.name}</span>
                       <span className="text-xs text-slate-400 font-mono">{s.email}</span>
@@ -294,7 +421,7 @@ export default function DashboardPage() {
                         Gate Staff
                       </span>
                       <button
-                        onClick={() => handleRemoveStaff(s.id)}
+                        onClick={() => handleRemoveStaff(s.user_id || s.id)}
                         className="text-xs font-bold text-red-600 hover:text-red-800 flex items-center gap-1"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Hapus
@@ -310,26 +437,36 @@ export default function DashboardPage() {
         /* Vendor Management Section */
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-xs">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Store className="w-5 h-5 text-amber-600" />
                   Pengelolaan Akun Vendor Booth
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Daftarkan vendor booth (F&amp;B / Merchandise). Akun vendor digunakan untuk transaksi cashless wristband di venue.
+                  {selectedEvent
+                    ? `Daftarkan vendor booth untuk event "${selectedEvent.name}".`
+                    : 'Pilih event terlebih dahulu untuk mengelola vendor.'}
                 </p>
               </div>
               <button
-                onClick={() => { setStaffRole('vendor'); setAddStaffOpen(true); }}
-                className="px-4 py-2 rounded-xl bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 shadow-md shadow-amber-600/20 flex items-center gap-1.5"
+                disabled={!selectedEventId}
+                onClick={() => {
+                  setStaffRole('vendor');
+                  setAddStaffOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 shadow-md shadow-amber-600/20 flex items-center gap-1.5 disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
                 Tambah Akun Vendor
               </button>
             </div>
 
-            {staffLoading ? (
+            {!selectedEventId ? (
+              <div className="text-center py-10 text-xs text-slate-400 font-medium">
+                Silakan buat event terlebih dahulu untuk menugaskan vendor.
+              </div>
+            ) : staffLoading ? (
               <div className="text-center py-10 text-xs text-slate-400 font-medium">Memuat data vendor...</div>
             ) : vendorMembers.length === 0 ? (
               <div className="text-center py-10 text-xs text-slate-400 font-medium">
@@ -338,7 +475,7 @@ export default function DashboardPage() {
             ) : (
               <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
                 {vendorMembers.map((s) => (
-                  <div key={s.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
+                  <div key={s.id || s.user_id} className="p-4 flex items-center justify-between hover:bg-slate-50">
                     <div>
                       <span className="font-extrabold text-sm text-slate-900 block">{s.name}</span>
                       <span className="text-xs text-slate-400 font-mono">{s.email}</span>
@@ -348,7 +485,7 @@ export default function DashboardPage() {
                         Vendor Booth
                       </span>
                       <button
-                        onClick={() => handleRemoveStaff(s.id)}
+                        onClick={() => handleRemoveStaff(s.user_id || s.id)}
                         className="text-xs font-bold text-red-600 hover:text-red-800 flex items-center gap-1"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Hapus
@@ -462,6 +599,86 @@ export default function DashboardPage() {
                 );
               })()}
             </div>
+          </div>
+
+          {/* Organizer Events Overview */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-indigo-600" />
+                  Daftar Event Anda ({myEvents.length})
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Kelola informasi event, tier tiket, jadwal sesi, dan status publikasi.
+                </p>
+              </div>
+              <button
+                onClick={() => router.push('/dashboard/events')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-sm self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" />
+                Buat &amp; Kelola Event
+              </button>
+            </div>
+
+            {myEvents.length === 0 ? (
+              <div className="text-center py-8 text-xs text-slate-400 font-medium">
+                Belum ada event. Klik &ldquo;Buat &amp; Kelola Event&rdquo; untuk menambahkan event pertama Anda.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {myEvents.map((evt) => {
+                  const isCurrent = evt.id === selectedEventId;
+                  return (
+                    <div
+                      key={evt.id}
+                      className={`p-4 rounded-2xl border transition-all ${
+                        isCurrent
+                          ? 'border-indigo-300 bg-indigo-50/40 shadow-xs'
+                          : 'border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            evt.status === 'published'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {evt.status}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-md border border-slate-100">
+                          {evt.category}
+                        </span>
+                      </div>
+
+                      <h3 className="font-extrabold text-xs text-slate-900 line-clamp-1 mb-1">{evt.name}</h3>
+                      <p className="text-[11px] text-slate-500 line-clamp-1 mb-3">{evt.location}</p>
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          onClick={() => {
+                            setSelectedEventId(evt.id);
+                            setActiveTab('staff');
+                          }}
+                          className="flex-1 py-1.5 px-2 rounded-lg bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-[11px] font-bold text-slate-700 hover:text-indigo-600 transition text-center"
+                        >
+                          Kelola Staff
+                        </button>
+                        <button
+                          onClick={() => router.push('/dashboard/events')}
+                          className="flex-1 py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition text-center"
+                        >
+                          Kelola Tiket &rarr;
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Recent Orders */}

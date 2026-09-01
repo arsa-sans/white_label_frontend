@@ -14,6 +14,8 @@ export interface EventItem {
   venue_layout_info?: string;
   start_date: string;
   end_date: string;
+  sale_start_at?: string;
+  sale_end_at?: string;
   capacity: number;
   banner_url: string;
   status: 'published' | 'draft' | 'ended' | 'deleted';
@@ -36,6 +38,8 @@ export interface EventFormData {
   venue_layout_info: string;
   start_date: string;
   end_date: string;
+  sale_start_at: string;
+  sale_end_at: string;
   capacity: string;
   banner_url: string;
   status: 'draft' | 'published';
@@ -50,6 +54,8 @@ const BLANK_FORM: EventFormData = {
   venue_layout_info: '',
   start_date: '',
   end_date: '',
+  sale_start_at: '',
+  sale_end_at: '',
   capacity: '0',
   banner_url: '',
   status: 'draft',
@@ -74,8 +80,10 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
           location: event.location,
           venue_name: event.venue_name,
           venue_layout_info: event.venue_layout_info || '',
-          start_date: event.start_date.slice(0, 16),
-          end_date: event.end_date.slice(0, 16),
+          start_date: event.start_date ? event.start_date.slice(0, 16) : '',
+          end_date: event.end_date ? event.end_date.slice(0, 16) : '',
+          sale_start_at: event.sale_start_at ? event.sale_start_at.slice(0, 16) : '',
+          sale_end_at: event.sale_end_at ? event.sale_end_at.slice(0, 16) : '',
           capacity: String(event.capacity),
           banner_url: event.banner_url,
           status: event.status === 'published' ? 'published' : 'draft',
@@ -193,7 +201,7 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Mulai *</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Mulai Event *</label>
               <input
                 type="datetime-local"
                 value={form.start_date}
@@ -203,12 +211,32 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Selesai *</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Selesai Event *</label>
               <input
                 type="datetime-local"
                 value={form.end_date}
                 onChange={(e) => set('end_date', e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-indigo-700 mb-1.5">⏰ Penjualan Tiket Dibuka</label>
+              <input
+                type="datetime-local"
+                value={form.sale_start_at}
+                onChange={(e) => set('sale_start_at', e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-indigo-700 mb-1.5">⏰ Penjualan Tiket Ditutup</label>
+              <input
+                type="datetime-local"
+                value={form.sale_end_at}
+                onChange={(e) => set('sale_end_at', e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
