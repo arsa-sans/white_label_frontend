@@ -34,8 +34,17 @@ export default function AdminAuditPage() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    if (!token || (user && user.role !== 'admin')) {
-      router.replace('/');
+    const currentToken = token || (typeof window !== 'undefined' ? localStorage.getItem('wl_token') : null);
+    const storedUserStr = typeof window !== 'undefined' ? localStorage.getItem('wl_user') : null;
+    let currentUser = user;
+    if (!currentUser && storedUserStr) {
+      try {
+        currentUser = JSON.parse(storedUserStr);
+      } catch {}
+    }
+
+    if (!currentToken || (currentUser && currentUser.role !== 'admin')) {
+      router.replace('/login');
       return;
     }
     fetchLogs();

@@ -45,13 +45,39 @@ function GoogleSignInButton({
 
 function RegisterPageContent() {
   const router = useRouter();
-  const { setUser } = useAppStore();
+  const { user, token, setUser } = useAppStore();
 
   const [roleTab, setRoleTab] = useState<'visitor' | 'organizer'>('visitor');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  React.useEffect(() => {
+    const storedToken = typeof window !== 'undefined' ? localStorage.getItem('wl_token') : null;
+    const storedUserStr = typeof window !== 'undefined' ? localStorage.getItem('wl_user') : null;
+    let currentUser = user;
+    if (!currentUser && storedUserStr) {
+      try {
+        currentUser = JSON.parse(storedUserStr);
+      } catch {}
+    }
+    const currentToken = token || storedToken;
+
+    if (currentToken && currentUser) {
+      if (currentUser.role === 'organizer') {
+        router.replace('/dashboard');
+      } else if (currentUser.role === 'admin') {
+        router.replace('/admin');
+      } else if (currentUser.role === 'gate_staff') {
+        router.replace('/gate-scan');
+      } else if (currentUser.role === 'vendor') {
+        router.replace('/booth');
+      } else {
+        router.replace('/');
+      }
+    }
+  }, [user, token, router]);
 
   // Form states
   const [name, setName] = useState('');

@@ -4,6 +4,12 @@ import React, { useState } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 
+export interface GuestStar {
+  name: string;
+  photo_url: string;
+  role: string;
+}
+
 export interface EventItem {
   id: string;
   name: string;
@@ -12,6 +18,8 @@ export interface EventItem {
   location: string;
   venue_name: string;
   venue_layout_info?: string;
+  venue_map_url?: string;
+  guest_stars?: GuestStar[];
   start_date: string;
   end_date: string;
   sale_start_at?: string;
@@ -36,6 +44,8 @@ export interface EventFormData {
   location: string;
   venue_name: string;
   venue_layout_info: string;
+  venue_map_url: string;
+  guest_stars: GuestStar[];
   start_date: string;
   end_date: string;
   sale_start_at: string;
@@ -52,6 +62,8 @@ const BLANK_FORM: EventFormData = {
   location: '',
   venue_name: '',
   venue_layout_info: '',
+  venue_map_url: '',
+  guest_stars: [],
   start_date: '',
   end_date: '',
   sale_start_at: '',
@@ -80,6 +92,8 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
           location: event.location,
           venue_name: event.venue_name,
           venue_layout_info: event.venue_layout_info || '',
+          venue_map_url: event.venue_map_url || '',
+          guest_stars: event.guest_stars || [],
           start_date: event.start_date ? event.start_date.slice(0, 16) : '',
           end_date: event.end_date ? event.end_date.slice(0, 16) : '',
           sale_start_at: event.sale_start_at ? event.sale_start_at.slice(0, 16) : '',
@@ -93,7 +107,29 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const set = (k: keyof EventFormData, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: keyof EventFormData, v: any) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handleAddGuestStar = () => {
+    setForm((f) => ({
+      ...f,
+      guest_stars: [...f.guest_stars, { name: '', role: 'Guest Star', photo_url: '' }],
+    }));
+  };
+
+  const handleUpdateGuestStar = (index: number, field: keyof GuestStar, value: string) => {
+    setForm((f) => {
+      const updated = [...f.guest_stars];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...f, guest_stars: updated };
+    });
+  };
+
+  const handleRemoveGuestStar = (index: number) => {
+    setForm((f) => ({
+      ...f,
+      guest_stars: f.guest_stars.filter((_, i) => i !== index),
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +140,11 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
     }
     setLoading(true);
     try {
-      const payload = { ...form, capacity: Number(form.capacity) };
+      const payload = {
+        ...form,
+        capacity: Number(form.capacity),
+        guest_stars: form.guest_stars.filter((g) => g.name.trim().length > 0),
+      };
       let res;
       if (isEdit && event) {
         res = await api.put(`/events/${event.id}`, payload);
@@ -137,7 +177,7 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[75vh]">
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
               <AlertCircle className="w-4 h-4 shrink-0" /> {error}
@@ -240,6 +280,89 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
               />
             </div>
 
+            {/* Google Maps Link */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">📍 Link Google Maps (Peta Lokasi Event)</label>
+              <input
+                value={form.venue_map_url}
+                onChange={(e) => set('venue_map_url', e.target.value)}
+                placeholder="https://maps.google.com/?q=-6.1492,106.8455 atau link embed Google Maps"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Link ini akan ditampilkan di halaman detail event sebagai peta interaktif dan navigasi pengunjung.
+              </p>
+            </div>
+
+            {/* Guest Stars Section */}
+            <div className="sm:col-span-2 border border-slate-200 bg-slate-50/60 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-800">⭐ Bintang Tamu / Guest Stars</label>
+                  <p className="text-[11px] text-slate-500">Tambahkan artis, pengisi acara, atau pembicara yang tampil.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddGuestStar}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-xs font-bold transition"
+                >
+                  + Tambah Bintang Tamu
+                </button>
+              </div>
+
+              {form.guest_stars.length === 0 ? (
+                <div className="text-center py-4 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white">
+                  Belum ada bintang tamu ditambahkan. Klik tombol di atas untuk menambahkan.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {form.guest_stars.map((g, idx) => (
+                    <div key={idx} className="p-3 bg-white border border-slate-200 rounded-xl space-y-2 relative">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-extrabold text-indigo-600">Bintang Tamu #{idx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveGuestStar(idx)}
+                          className="text-[11px] text-red-600 font-bold hover:text-red-800"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Nama Artis / Tokoh</label>
+                          <input
+                            value={g.name}
+                            onChange={(e) => handleUpdateGuestStar(idx, 'name', e.target.value)}
+                            placeholder="Misal: Sheila on 7"
+                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Role / Peran</label>
+                          <input
+                            value={g.role}
+                            onChange={(e) => handleUpdateGuestStar(idx, 'role', e.target.value)}
+                            placeholder="Main Performer, DJ, etc."
+                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1">URL Foto Bintang Tamu</label>
+                          <input
+                            value={g.photo_url}
+                            onChange={(e) => handleUpdateGuestStar(idx, 'photo_url', e.target.value)}
+                            placeholder="https://images.unsplash.com/..."
+                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Tata Letak Area Penonton &amp; Panggung</label>
               <input
@@ -250,7 +373,7 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
               />
             </div>
 
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Banner URL</label>
               <input
                 value={form.banner_url}

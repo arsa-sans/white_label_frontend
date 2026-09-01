@@ -11,36 +11,74 @@ interface AuthGuardProps {
 export default function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, token, isHydrated } = useAppStore();
-  const [mounted, setMounted] = useState(false);
+  const { user, token, rehydrateAuth } = useAppStore();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    // Initialize state from localStorage if store not yet hydrated
+    rehydrateAuth();
+    setReady(true);
+  }, [rehydrateAuth]);
+
+  useEffect(() => {
+    if (!ready) return;
+
     const storedToken = typeof window !== 'undefined' ? localStorage.getItem('wl_token') : null;
     const storedUserStr = typeof window !== 'undefined' ? localStorage.getItem('wl_user') : null;
-    let storedUser = null;
-    try {
-      if (storedUserStr) storedUser = JSON.parse(storedUserStr);
-    } catch {}
+    let storedUser = user;
+    if (!storedUser && storedUserStr) {
+      try {
+        storedUser = JSON.parse(storedUserStr);
+      } catch {}
+    }
 
-    const currentUser = user || storedUser;
     const currentToken = token || storedToken;
+    const currentUser = storedUser;
 
+    // If user is ALREADY logged in and visits /login or /register, auto-redirect by role
+    if (currentToken && currentUser && (pathname === '/login' || pathname === '/register')) {
+      if (currentUser.role === 'organizer') {
+        router.replace('/dashboard');
+        return;
+      } else if (currentUser.role === 'admin') {
+        router.replace('/admin');
+        return;
+      } else if (currentUser.role === 'gate_staff') {
+        router.replace('/gate-scan');
+        return;
+      } else if (currentUser.role === 'vendor') {
+        router.replace('/booth');
+        return;
+      } else {
+        router.replace('/');
+        return;
+      }
+    }
+
+    // Protect organizer dashboard
     if (pathname.startsWith('/dashboard')) {
       if (!currentToken) {
-        router.replace('/events');
+        router.replace('/login');
       } else if (currentUser && currentUser.role !== 'organizer' && currentUser.role !== 'admin') {
-        router.replace('/events');
+        router.replace('/');
       }
     }
 
-    if (pathname.startsWith('/my-tickets') || pathname.startsWith('/payment-methods')) {
+    // Protect admin panel
+    if (pathname.startsWith('/admin')) {
       if (!currentToken) {
-        router.replace('/events');
+        router.replace('/login');
+      } else if (currentUser && currentUser.role !== 'admin') {
+        router.replace('/');
       }
     }
-  }, [pathname, user, token, router, mounted]);
+
+    // Protect visitor pages
+    if (pathname.startsWith('/my-tickets') || pathname.startsWith('/payment-methods')) {
+      if (!currentToken) {
+        router.replace('/login');
+      }
+    }
+  }, [pathname, user, token, router, ready]);
 
   return <>{children}</>;
 }

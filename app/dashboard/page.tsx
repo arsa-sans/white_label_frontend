@@ -20,6 +20,10 @@ import {
   ChevronDown,
   Loader2,
   ArrowRight,
+  ShieldCheck,
+  CreditCard,
+  Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
@@ -74,6 +78,13 @@ export default function DashboardPage() {
   const [staffRole, setStaffRole] = useState<'gate_staff' | 'vendor'>('gate_staff');
   const [staffError, setStaffError] = useState('');
 
+  // SaaS Staff Fee states
+  const [staffFeePaid, setStaffFeePaid] = useState(false);
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [payingFee, setPayingFee] = useState(false);
+  const [pendingRole, setPendingRole] = useState<'gate_staff' | 'vendor'>('gate_staff');
+  const [payError, setPayError] = useState('');
+
   const fetchEvents = useCallback(async () => {
     setEventsLoading(true);
     try {
@@ -107,6 +118,21 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const fetchStaffFeeStatus = useCallback(async (eventId: string | null) => {
+    if (!eventId) {
+      setStaffFeePaid(false);
+      return;
+    }
+    try {
+      const res = await api.get(`/events/${eventId}/staff-fee-status`);
+      if (res.data.success) {
+        setStaffFeePaid(Boolean(res.data.data.staff_fee_paid));
+      }
+    } catch {
+      // Quiet fallback
+    }
+  }, []);
+
   const fetchStaff = useCallback(async (eventId: string | null) => {
     if (!eventId) {
       setStaffList([]);
@@ -126,13 +152,22 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!token) {
+    const currentToken = token || (typeof window !== 'undefined' ? localStorage.getItem('wl_token') : null);
+    const storedUserStr = typeof window !== 'undefined' ? localStorage.getItem('wl_user') : null;
+    let currentUser = user;
+    if (!currentUser && storedUserStr) {
+      try {
+        currentUser = JSON.parse(storedUserStr);
+      } catch {}
+    }
+
+    if (!currentToken) {
       router.replace('/login');
       return;
     }
 
-    if (user && user.role !== 'organizer' && user.role !== 'admin') {
-      router.replace('/events');
+    if (currentUser && currentUser.role !== 'organizer' && currentUser.role !== 'admin') {
+      router.replace('/');
       return;
     }
 
@@ -145,8 +180,9 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedEventId) {
       fetchStaff(selectedEventId);
+      fetchStaffFeeStatus(selectedEventId);
     }
-  }, [selectedEventId, fetchStaff]);
+  }, [selectedEventId, fetchStaff, fetchStaffFeeStatus]);
 
   const handleExportExcel = async (type: 'sales' | 'gate-logs' | 'booth-transactions', filename: string) => {
     setExportingType(type);
@@ -161,13 +197,13 @@ export default function DashboardPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${filename}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch {
-      alert('Gagal mengekspor laporan Excel. Pastikan data tersedia.');
+      alert('Gagal mengekspor data Excel. Pastikan backend aktif.');
     } finally {
       setExportingType(null);
     }
@@ -202,6 +238,68 @@ export default function DashboardPage() {
       }
     } catch (err: any) {
       setStaffError(err.response?.data?.message || 'Gagal menambahkan akun');
+    }
+  };
+
+  const handlePayStaffFee = async () => {
+    if (!selectedEventId) return;
+    setPayingFee(true);
+    setPayError('');
+    try {
+      const res = await api.post(`/events/${selectedEventId}/staff-fee-order`);
+      if (res.data.success) {
+        const orderData = res.data.data;
+        const { snap_token, redirect_url } = orderData;
+
+        // Ensure snap script is injected
+        if (typeof window !== 'undefined' && !(window as any).snap) {
+          await new Promise<void>((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
+            script.setAttribute(
+              'data-client-key',
+              process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || 'SB-Mid-client-sample'
+            );
+            script.onload = () => resolve();
+            script.onerror = () => resolve();
+            document.body.appendChild(script);
+          });
+        }
+
+        const completePayment = async () => {
+          await api.post(`/events/${selectedEventId}/staff-fee-confirm`);
+          setStaffFeePaid(true);
+          setPayModalOpen(false);
+          setStaffRole(pendingRole);
+          setAddStaffOpen(true);
+        };
+
+        if (typeof window !== 'undefined' && (window as any).snap) {
+          (window as any).snap.pay(snap_token, {
+            onSuccess: async () => {
+              await completePayment();
+            },
+            onPending: async () => {
+              await completePayment();
+            },
+            onError: () => {
+              setPayError('Pembayaran Midtrans gagal atau dibatalkan.');
+            },
+            onClose: () => {
+              setPayingFee(false);
+            },
+          });
+        } else if (redirect_url) {
+          // Open direct Midtrans sandbox URL
+          window.location.href = redirect_url;
+        } else {
+          await completePayment();
+        }
+      }
+    } catch (err: any) {
+      setPayError(err.response?.data?.message || 'Gagal memproses pembayaran aktivasi staff.');
+    } finally {
+      setPayingFee(false);
     }
   };
 
@@ -388,8 +486,13 @@ export default function DashboardPage() {
               <button
                 disabled={!selectedEventId}
                 onClick={() => {
-                  setStaffRole('gate_staff');
-                  setAddStaffOpen(true);
+                  if (!staffFeePaid) {
+                    setPendingRole('gate_staff');
+                    setPayModalOpen(true);
+                  } else {
+                    setStaffRole('gate_staff');
+                    setAddStaffOpen(true);
+                  }
                 }}
                 className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md shadow-indigo-600/20 flex items-center gap-1.5 disabled:opacity-50"
               >
@@ -397,6 +500,38 @@ export default function DashboardPage() {
                 Tambah Gate Staff
               </button>
             </div>
+
+            {selectedEventId && (
+              staffFeePaid ? (
+                <div className="flex items-center gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>✓ Layanan Staff SaaS Teraktivasi — Akses penambahan Gate Staff &amp; POS Vendor aktif tanpa batas untuk event ini.</span>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100 text-amber-700 rounded-xl">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-amber-900 uppercase tracking-wide">Aktivasi Fitur Staff Event (SaaS)</h4>
+                      <p className="text-xs text-amber-800 mt-0.5">
+                        Biaya 1x Rp 50.000 via Midtrans per event untuk mengaktifkan manajemen Gate Staff &amp; Vendor.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPendingRole('gate_staff');
+                      setPayModalOpen(true);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm shrink-0 transition"
+                  >
+                    Bayar Aktivasi (Rp 50.000)
+                  </button>
+                </div>
+              )
+            )}
 
             {!selectedEventId ? (
               <div className="text-center py-10 text-xs text-slate-400 font-medium">
@@ -452,8 +587,13 @@ export default function DashboardPage() {
               <button
                 disabled={!selectedEventId}
                 onClick={() => {
-                  setStaffRole('vendor');
-                  setAddStaffOpen(true);
+                  if (!staffFeePaid) {
+                    setPendingRole('vendor');
+                    setPayModalOpen(true);
+                  } else {
+                    setStaffRole('vendor');
+                    setAddStaffOpen(true);
+                  }
                 }}
                 className="px-4 py-2 rounded-xl bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 shadow-md shadow-amber-600/20 flex items-center gap-1.5 disabled:opacity-50"
               >
@@ -461,6 +601,38 @@ export default function DashboardPage() {
                 Tambah Akun Vendor
               </button>
             </div>
+
+            {selectedEventId && (
+              staffFeePaid ? (
+                <div className="flex items-center gap-2.5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>✓ Layanan Staff SaaS Teraktivasi — Akses penambahan Gate Staff &amp; POS Vendor aktif tanpa batas untuk event ini.</span>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100 text-amber-700 rounded-xl">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-amber-900 uppercase tracking-wide">Aktivasi Fitur Staff Event (SaaS)</h4>
+                      <p className="text-xs text-amber-800 mt-0.5">
+                        Biaya 1x Rp 50.000 via Midtrans per event untuk mengaktifkan manajemen Gate Staff &amp; Vendor.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPendingRole('vendor');
+                      setPayModalOpen(true);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm shrink-0 transition"
+                  >
+                    Bayar Aktivasi (Rp 50.000)
+                  </button>
+                </div>
+              )
+            )}
 
             {!selectedEventId ? (
               <div className="text-center py-10 text-xs text-slate-400 font-medium">
@@ -801,6 +973,82 @@ export default function DashboardPage() {
                 Simpan &amp; Beri Akses
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* SaaS Event Staff Feature Activation Modal */}
+      {payModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 animate-scaleUp">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-2xl text-indigo-600">
+                  <CreditCard className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Aktivasi Fitur Staff Event</h3>
+                  <p className="text-xs text-slate-500 font-medium">WhiteLabel SaaS Event Management</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPayModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-base p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {payError && (
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{payError}</span>
+              </div>
+            )}
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3 text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Event:</span>
+                <span className="font-bold text-slate-900">{selectedEvent?.name || 'Event Terpilih'}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Biaya Aktivasi (1x per Event):</span>
+                <span className="font-black text-sm text-indigo-600">Rp 50.000</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Metode Pembayaran:</span>
+                <span className="font-bold text-slate-700">Midtrans (QRIS, VA, E-Wallet, CC)</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-xs text-slate-600">
+              <span className="font-bold text-slate-800 block">Benefit Aktivasi Staff Event:</span>
+              <ul className="space-y-1 text-[11px] list-disc list-inside text-slate-500">
+                <li>Akses penambahan akun Gate Staff tanpa batasan jumlah</li>
+                <li>Akses penambahan akun Kasir Vendor Booth</li>
+                <li>Sinkronisasi pemindaian barcode gate scanner multi-perangkat</li>
+                <li>Laporan kehadiran (check-in rate) &amp; analitik booth real-time</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setPayModalOpen(false)}
+                className="flex-1 py-3 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={payingFee}
+                onClick={handlePayStaffFee}
+                className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {payingFee ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                <span>{payingFee ? 'Memproses...' : 'Bayar Rp 50.000'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

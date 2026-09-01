@@ -340,31 +340,64 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           )}
 
           {/* Venue Map */}
-          {event.venue_map_url && (
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-xs space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-cyan-50 text-cyan-600 border border-cyan-100">
-                  <MapPin className="w-5 h-5" />
+          {(event.venue_map_url || event.location) && (() => {
+            const rawUrl = (event.venue_map_url || '').trim();
+            const locationQuery = event.venue_name ? `${event.venue_name}, ${event.location}` : event.location;
+            
+            // Build reliable embed URL that always works with a red marker pin
+            let embedSrc = `https://maps.google.com/maps?q=${encodeURIComponent(locationQuery)}&t=&z=16&ie=UTF8&iwloc=B&output=embed`;
+            
+            if (rawUrl) {
+              if (rawUrl.includes('output=embed') || rawUrl.includes('google.com/maps/embed')) {
+                embedSrc = rawUrl;
+              } else if (rawUrl.includes('<iframe') && rawUrl.includes('src=')) {
+                const match = rawUrl.match(/src=["']([^"']+)["']/);
+                if (match && match[1]) embedSrc = match[1];
+              }
+            }
+
+            const directMapsLink = rawUrl.startsWith('http')
+              ? rawUrl
+              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationQuery)}`;
+
+            return (
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-cyan-50 text-cyan-600 border border-cyan-100">
+                      <MapPin className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">Peta &amp; Lokasi Venue</h2>
+                      <p className="text-xs text-slate-500">{event.venue_name} — {event.location}</p>
+                    </div>
+                  </div>
+
+                  <a
+                    href={directMapsLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-xs font-bold transition border border-cyan-200 self-start sm:self-auto"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    Buka di Google Maps &rarr;
+                  </a>
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">Lokasi Venue</h2>
-                  <p className="text-xs text-slate-500">{event.venue_name} — {event.location}</p>
+                <div className="rounded-2xl overflow-hidden border border-slate-200 h-64 md:h-80 bg-slate-100 relative shadow-inner">
+                  <iframe
+                    src={embedSrc}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="Peta Lokasi Event"
+                  />
                 </div>
               </div>
-              <div className="rounded-2xl overflow-hidden border border-slate-200 h-64 md:h-80">
-                <iframe
-                  src={event.venue_map_url}
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Venue Location"
-                />
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Venue Layout Info */}
           {event.venue_layout_info && (

@@ -41,6 +41,7 @@ interface AppState {
   setUser: (user: User | null, token?: string) => void;
   logout: () => void;
   setHydrated: (hydrated: boolean) => void;
+  rehydrateAuth: () => void;
   updateCartQuantity: (item: Omit<CartItem, 'quantity'>, delta: number) => void;
   setCartItemQuantity: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
   clearCart: () => void;
@@ -49,10 +50,30 @@ interface AppState {
   clearQueueSession: () => void;
 }
 
+const getInitialAuth = () => {
+  if (typeof window === 'undefined') {
+    return { user: null, token: null, isHydrated: false };
+  }
+  try {
+    const token = localStorage.getItem('wl_token');
+    const userStr = localStorage.getItem('wl_user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    return {
+      user: token && user ? user : null,
+      token: token || null,
+      isHydrated: true,
+    };
+  } catch {
+    return { user: null, token: null, isHydrated: true };
+  }
+};
+
+const initialAuth = getInitialAuth();
+
 export const useAppStore = create<AppState>((set) => ({
-  user: null,
-  token: null,
-  isHydrated: false,
+  user: initialAuth.user,
+  token: initialAuth.token,
+  isHydrated: initialAuth.isHydrated,
   cart: [],
   activeEventId: null,
   queueSessionId: null,
@@ -77,6 +98,11 @@ export const useAppStore = create<AppState>((set) => ({
   },
 
   setHydrated: (isHydrated) => set({ isHydrated }),
+
+  rehydrateAuth: () => {
+    const auth = getInitialAuth();
+    set({ user: auth.user, token: auth.token, isHydrated: true });
+  },
 
   updateCartQuantity: (item, delta) =>
     set((state) => {
