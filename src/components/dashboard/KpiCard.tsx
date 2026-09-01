@@ -8,20 +8,20 @@ interface KpiCardProps {
   label: string;
   value: string;
   sub?: string;
-  color: string;
+  color?: string;
 }
 
-export default function KpiCard({ icon: Icon, label, value, sub, color }: KpiCardProps) {
+export default function KpiCard({ icon: Icon, label, value, sub }: KpiCardProps) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3 shadow-xs hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl border border-zinc-200 p-5 space-y-3 shadow-xs hover:border-zinc-300 transition-all">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</span>
-        <div className={`p-2.5 rounded-xl ${color}`}>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">{label}</span>
+        <div className="p-2 rounded-xl bg-zinc-100 border border-zinc-200 text-zinc-900">
           <Icon className="w-4 h-4" />
         </div>
       </div>
-      <div className="text-2xl font-black text-slate-900">{value}</div>
-      {sub && <div className="text-xs text-slate-400 font-medium">{sub}</div>}
+      <div className="text-2xl font-black text-zinc-950 font-mono tabular-nums tracking-tight">{value}</div>
+      {sub && <div className="text-xs text-zinc-400 font-medium">{sub}</div>}
     </div>
   );
 }

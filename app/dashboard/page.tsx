@@ -393,15 +393,15 @@ export default function DashboardPage() {
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
               disabled={exportingType !== null}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 tactile-btn"
             >
               {exportingType ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
               ) : (
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <FileSpreadsheet className="w-3.5 h-3.5 text-zinc-300" />
               )}
               <span>{exportingType ? 'Mengekspor...' : 'Export Excel'}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 text-zinc-400" />
             </button>
 
             {showExportMenu && (
@@ -920,13 +920,13 @@ export default function DashboardPage() {
 
       {/* Add Staff / Vendor Modal */}
       {addStaffOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-zinc-200 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="text-sm font-bold text-zinc-950">
                 {staffRole === 'vendor' ? 'Tambah Akun Vendor' : 'Tambah Gate Staff Baru'}
               </h3>
-              <button onClick={() => setAddStaffOpen(false)} className="text-slate-400 font-bold text-sm">
+              <button onClick={() => setAddStaffOpen(false)} className="text-zinc-400 font-bold text-sm">
                 ✕
               </button>
             </div>
@@ -935,40 +935,38 @@ export default function DashboardPage() {
 
             <form onSubmit={handleAddStaff} className="space-y-3">
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Nama</label>
+                <label className="block text-[11px] font-bold text-zinc-700 mb-1">Nama</label>
                 <input
                   type="text"
                   value={staffName}
                   onChange={(e) => setStaffName(e.target.value)}
                   placeholder={staffRole === 'vendor' ? 'Vendor Snack & Beverage' : 'Rudi Gate Staff'}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-900"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Email Login</label>
+                <label className="block text-[11px] font-bold text-zinc-700 mb-1">Email Login</label>
                 <input
                   type="email"
                   value={staffEmail}
                   onChange={(e) => setStaffEmail(e.target.value)}
                   placeholder={staffRole === 'vendor' ? 'vendor@soundwave.com' : 'rudi@gate.com'}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-900"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Password</label>
+                <label className="block text-[11px] font-bold text-zinc-700 mb-1">Password</label>
                 <input
                   type="password"
                   value={staffPassword}
                   onChange={(e) => setStaffPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-zinc-900"
                 />
               </div>
               <button
                 type="submit"
-                className={`w-full py-2.5 rounded-xl text-white font-bold text-xs mt-2 ${
-                  staffRole === 'vendor' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
+                className="w-full py-2.5 rounded-xl text-white font-bold text-xs mt-2 bg-zinc-900 hover:bg-zinc-800 transition tactile-btn"
               >
                 Simpan &amp; Beri Akses
               </button>
@@ -979,16 +977,16 @@ export default function DashboardPage() {
 
       {/* SaaS Event Staff Feature Activation Modal */}
       {payModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-6 animate-scaleUp">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-zinc-200 space-y-6 animate-scaleUp">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-2xl text-indigo-600">
+                <div className="p-3 bg-zinc-100 border border-zinc-200 rounded-2xl text-zinc-900">
                   <CreditCard className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">Aktivasi Fitur Staff Event</h3>
-                  <p className="text-xs text-slate-500 font-medium">WhiteLabel SaaS Event Management</p>
+                  <h3 className="text-base font-black text-zinc-950">Aktivasi Fitur Staff Event</h3>
+                  <p className="text-xs text-zinc-500 font-medium">WhiteLabel SaaS Event Management</p>
                 </div>
               </div>
               <button

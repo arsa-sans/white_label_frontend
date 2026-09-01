@@ -4,31 +4,38 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useGoogleLogin } from '@react-oauth/google';
-import { Ticket, Wallet, QrCode, LayoutDashboard, LogOut, Sparkles, ChevronDown, Tag, Shield, AlertTriangle, Calendar } from 'lucide-react';
+import {
+  Ticket,
+  Wallet,
+  LayoutDashboard,
+  LogOut,
+  Sparkles,
+  Tag,
+  Shield,
+  AlertTriangle,
+  Menu,
+  X,
+  User,
+  ArrowRight,
+  ShieldCheck,
+} from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import api from '@/lib/api';
 import { useConfirm } from '@/hooks/useConfirm';
 import { segmentConfirmTemplates } from '@/lib/confirmPresets';
-
-// ─── Demo Accounts (for internal dev testing) ──────────────────────────────
-const DEMO_ACCOUNTS = [
-  { label: 'Visitor / Pembeli', email: 'visitor@demo.wl', password: 'Visitor@2026!', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
-  { label: 'Organizer Event', email: 'organizer@demo.wl', password: 'Organizer@2026!', color: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
-  { label: 'Gate Staff', email: 'gate@demo.wl', password: 'GateStaff@2026!', color: 'text-amber-700 bg-amber-50 border-amber-200' },
-  { label: 'Vendor Booth', email: 'vendor@demo.wl', password: 'Vendor@2026!', color: 'text-purple-700 bg-purple-50 border-purple-200' },
-  { label: 'Super Admin', email: 'admin@demo.wl', password: 'Admin@2026!', color: 'text-rose-700 bg-rose-50 border-rose-200' },
-];
 
 function GoogleSignInButton({
   onSuccess,
   label,
   variant = 'primary',
   disabled = false,
+  fullWidth = false,
 }: {
   onSuccess: (tokenResponse: any) => void;
   label: string;
   variant?: 'primary' | 'outline';
   disabled?: boolean;
+  fullWidth?: boolean;
 }) {
   const login = useGoogleLogin({
     onSuccess,
@@ -38,11 +45,11 @@ function GoogleSignInButton({
     flow: 'implicit',
   });
 
-  const base = 'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-60';
+  const base = 'flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-60 tactile-btn';
   const styles =
     variant === 'primary'
-      ? `${base} bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20`
-      : `${base} border border-indigo-200 text-indigo-700 hover:bg-indigo-50`;
+      ? `${base} bg-zinc-900 text-white hover:bg-zinc-800 shadow-xs ${fullWidth ? 'w-full' : ''}`
+      : `${base} border border-zinc-200 text-zinc-800 hover:bg-zinc-100 ${fullWidth ? 'w-full' : ''}`;
 
   return (
     <button
@@ -51,10 +58,10 @@ function GoogleSignInButton({
       className={styles}
     >
       <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-        <path fill={variant === 'primary' ? 'white' : '#4285F4'} d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-        <path fill={variant === 'primary' ? 'rgba(255,255,255,0.8)' : '#34A853'} d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-        <path fill={variant === 'primary' ? 'rgba(255,255,255,0.7)' : '#FBBC05'} d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-        <path fill={variant === 'primary' ? 'rgba(255,255,255,0.9)' : '#EA4335'} d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
       </svg>
       {label}
     </button>
@@ -67,8 +74,7 @@ export default function Navbar() {
   const confirm = useConfirm();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showDevMenu, setShowDevMenu] = useState(false);
-  const [demoLoading, setDemoLoading] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -95,13 +101,10 @@ export default function Navbar() {
     }
   }, [setUser, logout, setHydrated]);
 
-  // Close dev menu on outside click
+  // Close mobile menu on route change
   useEffect(() => {
-    if (!showDevMenu) return;
-    const close = () => setShowDevMenu(false);
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
-  }, [showDevMenu]);
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   const handleGoogleSuccess = async (tokenResponse: any) => {
     setLoading(true);
@@ -113,33 +116,18 @@ export default function Navbar() {
         setUser(res.data.data.user, res.data.data.token);
       }
     } catch {
-      // silently fail — errors surface on the register page
+      // silently fail
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDemoLogin = async (email: string, password: string) => {
-    setDemoLoading(email);
-    try {
-      const res = await api.post('/auth/login', {
-        email,
-        password,
-      });
-      if (res.data.success) {
-        setUser(res.data.data.user, res.data.data.token);
-        setShowDevMenu(false);
-      }
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Login demo gagal.');
-    } finally {
-      setDemoLoading(null);
-    }
-  };
-
   const handleLogoutClick = async () => {
     const isConfirmed = await segmentConfirmTemplates.logout(confirm, user?.name);
-    if (isConfirmed) logout();
+    if (isConfirmed) {
+      logout();
+      setMobileMenuOpen(false);
+    }
   };
 
   const getNavLinks = () => {
@@ -172,24 +160,24 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-200 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Brand */}
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-black text-lg shadow-md shadow-indigo-500/20">
+          <Link href="/" className="flex items-center gap-3 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-zinc-950 flex items-center justify-center text-white font-black text-sm shadow-xs">
               WL
             </div>
             <div>
-              <span className="font-bold text-lg text-slate-900 block leading-tight">
-                Soundwave Festival
+              <span className="font-extrabold text-base text-zinc-950 block leading-tight tracking-tight">
+                Soundwave
               </span>
-              <span className="text-[10px] uppercase tracking-widest font-bold text-indigo-600">
-                White Label Platform
+              <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-500">
+                White Label Event
               </span>
             </div>
           </Link>
 
-          {/* Navigation Links */}
+          {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
@@ -198,32 +186,32 @@ export default function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     active
-                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                      ? 'bg-zinc-900 text-white shadow-xs'
+                      : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5" />
                   {link.label}
                 </Link>
               );
             })}
           </nav>
 
-          {/* Auth Controls */}
-          <div className="flex items-center gap-2">
+          {/* Desktop Auth Controls */}
+          <div className="hidden md:flex items-center gap-2">
             {mounted && user ? (
               <div className="flex items-center gap-3">
-                <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-xs font-semibold text-slate-800">{user.name}</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-mono capitalize">
+                <div className="flex flex-col items-end">
+                  <span className="text-xs font-bold text-zinc-900">{user.name}</span>
+                  <span className="text-[10px] px-2 py-0.2 rounded-md bg-zinc-100 text-zinc-700 font-mono font-medium capitalize border border-zinc-200">
                     {user.role}
                   </span>
                 </div>
                 <button
                   onClick={handleLogoutClick}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition-colors tactile-btn"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   Logout
@@ -233,19 +221,18 @@ export default function Navbar() {
               <>
                 <Link
                   href="/login"
-                  className="px-3 py-2 text-xs font-bold text-slate-700 hover:text-indigo-600 transition-colors"
+                  className="px-3 py-1.5 text-xs font-bold text-zinc-700 hover:text-zinc-950 transition-colors"
                 >
                   Masuk
                 </Link>
 
                 <Link
                   href="/register"
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 text-white hover:bg-zinc-800 transition-all tactile-btn"
                 >
                   Daftar
                 </Link>
 
-                {/* Google Sign In */}
                 <GoogleSignInButton
                   onSuccess={handleGoogleSuccess}
                   label="Google"
@@ -255,7 +242,102 @@ export default function Navbar() {
               </>
             )}
           </div>
+
+          {/* Mobile Hamburger Toggle Button */}
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-xl border border-zinc-200 text-zinc-800 hover:bg-zinc-100 transition-colors"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-zinc-200 bg-white shadow-xl animate-in slide-in-from-top duration-200">
+            <div className="px-4 py-4 space-y-3">
+              {/* Navigation Links */}
+              <div className="space-y-1">
+                {navLinks.map((link) => {
+                  const Icon = link.icon;
+                  const active = pathname === link.href;
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                        active
+                          ? 'bg-zinc-900 text-white'
+                          : 'text-zinc-700 hover:bg-zinc-100'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </div>
+
+              {/* Mobile User / Auth Section */}
+              <div className="pt-3 border-t border-zinc-200">
+                {mounted && user ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center text-xs font-bold">
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-zinc-900 line-clamp-1">{user.name}</div>
+                          <div className="text-[10px] text-zinc-500">{user.email}</div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-white text-zinc-800 border border-zinc-200 font-mono capitalize">
+                        {user.role}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={handleLogoutClick}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Keluar dari Akun
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Link
+                        href="/login"
+                        className="py-2.5 text-center text-xs font-bold text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-xl transition-colors"
+                      >
+                        Masuk
+                      </Link>
+                      <Link
+                        href="/register"
+                        className="py-2.5 text-center text-xs font-bold text-white bg-zinc-900 hover:bg-zinc-800 rounded-xl transition-colors"
+                      >
+                        Daftar
+                      </Link>
+                    </div>
+
+                    <GoogleSignInButton
+                      onSuccess={handleGoogleSuccess}
+                      label="Masuk dengan Google"
+                      variant="outline"
+                      disabled={loading}
+                      fullWidth
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </header>
     </>
   );

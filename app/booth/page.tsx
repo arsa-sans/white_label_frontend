@@ -160,34 +160,34 @@ export default function BoothCashierPage() {
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[#F8F9FA] text-zinc-900 flex flex-col w-full max-w-full overflow-x-hidden">
       {/* Top Bar */}
-      <header className="bg-slate-800/80 border-b border-slate-700/80 px-6 py-4 flex items-center justify-between">
+      <header className="bg-white border-b border-zinc-200 px-4 sm:px-6 py-4 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push('/dashboard')}
-            className="p-2 rounded-xl bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 transition-colors"
+            className="p-2 rounded-xl bg-zinc-100 text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200 transition-colors tactile-btn"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-zinc-100 text-zinc-900 border border-zinc-200">
               <Store className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="font-extrabold text-sm text-white">{boothName}</h1>
-              <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" /> Kasir Booth Cashless Online
+              <h1 className="font-black text-sm text-zinc-950">{boothName}</h1>
+              <span className="text-[10px] text-zinc-500 font-bold flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-zinc-900" /> Kasir Booth Cashless Online
               </span>
             </div>
           </div>
         </div>
 
         <div className="text-right">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">
             Omset Hari Ini
           </span>
-          <span className="text-base font-black text-emerald-400">
+          <span className="text-sm sm:text-base font-black text-zinc-950 font-mono tabular-nums">
             Rp {totalSalesToday.toLocaleString('id-ID')}
           </span>
         </div>
@@ -196,14 +196,14 @@ export default function BoothCashierPage() {
       {/* Main Cashier Body */}
       <div className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Side: Charge Calculator & Numpad */}
-        <div className="lg:col-span-7 bg-slate-800 border border-slate-700/80 rounded-3xl p-6 flex flex-col justify-between space-y-6">
+        <div className="lg:col-span-7 bg-white border border-zinc-200 rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-6 shadow-xs">
           <div className="space-y-4">
-            {/* Display Amount */}
-            <div className="bg-slate-950 rounded-2xl border border-slate-800 p-5 text-right space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            {/* Display Amount (High-Contrast Bento Card) */}
+            <div className="bg-zinc-950 rounded-2xl border border-zinc-800 p-5 text-right space-y-1 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
                 Total Tagihan
               </span>
-              <div className="text-4xl font-black text-emerald-400 font-mono tracking-tight">
+              <div className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight tabular-nums">
                 Rp {numericAmount.toLocaleString('id-ID')}
               </div>
             </div>
@@ -211,23 +211,23 @@ export default function BoothCashierPage() {
             {/* Item summary note & NFC Input */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
                   Wristband NFC UID
                 </label>
                 <div className="relative">
-                  <Smartphone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <Smartphone className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
                     value={nfcInput}
                     onChange={(e) => setNfcInput(e.target.value.toUpperCase())}
                     placeholder="Tap NFC / Input Code"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full pl-9 pr-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono font-bold text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:bg-white transition"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
                   Catatan Item (opsional)
                 </label>
                 <input
@@ -235,14 +235,14 @@ export default function BoothCashierPage() {
                   value={itemsSummary}
                   onChange={(e) => setItemsSummary(e.target.value)}
                   placeholder="e.g. 2x Kopi Kenangan"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:bg-white transition"
                 />
               </div>
             </div>
 
             {/* Preset Buttons */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                 + Preset Cepat
               </span>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
@@ -250,7 +250,7 @@ export default function BoothCashierPage() {
                   <button
                     key={preset}
                     onClick={() => handleAddPreset(preset)}
-                    className="py-2 rounded-xl bg-slate-700/60 border border-slate-600/60 text-xs font-bold text-slate-200 hover:bg-indigo-600 hover:border-indigo-500 transition-colors"
+                    className="py-2 rounded-xl bg-zinc-100 border border-zinc-200 text-xs font-bold font-mono text-zinc-800 hover:bg-zinc-900 hover:text-white hover:border-zinc-900 transition-all tactile-btn"
                   >
                     +{(preset / 1000).toFixed(0)}k
                   </button>
@@ -266,15 +266,15 @@ export default function BoothCashierPage() {
                 <button
                   key={btn}
                   onClick={() => handleNumpad(btn)}
-                  className={`py-3.5 rounded-2xl text-lg font-black transition-all ${
+                  className={`py-3.5 rounded-2xl text-lg font-black transition-all tactile-btn font-mono ${
                     btn === 'C'
-                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30'
+                      ? 'bg-zinc-100 text-zinc-900 border border-zinc-200 hover:bg-zinc-200'
                       : btn === 'DEL'
-                      ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 flex items-center justify-center'
-                      : 'bg-slate-700/80 text-white border border-slate-600/80 hover:bg-slate-600'
+                      ? 'bg-zinc-100 text-zinc-900 border border-zinc-200 hover:bg-zinc-200 flex items-center justify-center'
+                      : 'bg-zinc-50 text-zinc-950 border border-zinc-200 hover:bg-zinc-100'
                   }`}
                 >
-                  {btn === 'DEL' ? <Delete className="w-5 h-5" /> : btn}
+                  {btn === 'DEL' ? <Delete className="w-5 h-5 text-zinc-700" /> : btn}
                 </button>
               ))}
             </div>
@@ -283,14 +283,14 @@ export default function BoothCashierPage() {
             <button
               onClick={handleCharge}
               disabled={loading || numericAmount <= 0}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-base shadow-lg shadow-emerald-500/20 hover:from-emerald-600 hover:to-teal-700 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-2xl bg-zinc-900 text-white font-black text-sm sm:text-base shadow-xs hover:bg-zinc-800 transition-all disabled:opacity-40 flex items-center justify-center gap-2 tactile-btn"
             >
               {loading ? (
                 'Memproses Transaksi Tap...'
               ) : (
                 <>
                   <CreditCard className="w-5 h-5" />
-                  BAYAR SALDO WRISTBAND (Rp {numericAmount.toLocaleString('id-ID')})
+                  <span>BAYAR SALDO WRISTBAND (Rp {numericAmount.toLocaleString('id-ID')})</span>
                 </>
               )}
             </button>
@@ -298,9 +298,9 @@ export default function BoothCashierPage() {
         </div>
 
         {/* Right Side: Sales History Log */}
-        <div className="lg:col-span-5 bg-slate-800 border border-slate-700/80 rounded-3xl p-6 space-y-4 flex flex-col">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-indigo-400" />
+        <div className="lg:col-span-5 bg-white border border-zinc-200 rounded-3xl p-5 sm:p-6 space-y-4 flex flex-col shadow-xs">
+          <h2 className="text-sm font-bold text-zinc-950 flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-zinc-700" />
             Riwayat Transaksi Booth Hari Ini ({todayTxs.length})
           </h2>
 
@@ -308,11 +308,11 @@ export default function BoothCashierPage() {
             {todayTxs.map((tx) => (
               <div
                 key={tx.id}
-                className="p-3.5 bg-slate-900/90 border border-slate-700/80 rounded-2xl flex items-center justify-between"
+                className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl flex items-center justify-between hover:bg-zinc-100/70 transition"
               >
                 <div>
-                  <span className="font-bold text-xs text-white block">{tx.items_summary}</span>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                  <span className="font-bold text-xs text-zinc-950 block">{tx.items_summary}</span>
+                  <div className="flex items-center gap-2 text-[10px] text-zinc-500 mt-0.5">
                     <span className="font-mono">{tx.nfc_uid}</span>
                     <span>·</span>
                     <span>{tx.time}</span>
@@ -320,11 +320,11 @@ export default function BoothCashierPage() {
                 </div>
 
                 <div className="text-right">
-                  <span className="font-black text-xs text-emerald-400 block">
+                  <span className="font-black text-xs text-zinc-950 block font-mono tabular-nums">
                     +Rp {tx.amount.toLocaleString('id-ID')}
                   </span>
                   {tx.remaining_balance !== undefined && (
-                    <span className="text-[10px] text-slate-500 font-medium">
+                    <span className="text-[10px] text-zinc-400 font-medium font-mono">
                       Sisa: Rp {tx.remaining_balance.toLocaleString('id-ID')}
                     </span>
                   )}
@@ -337,43 +337,33 @@ export default function BoothCashierPage() {
 
       {/* Result Modal Overlay */}
       {resultModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in-50">
-          <div
-            className={`w-full max-w-md rounded-3xl p-8 text-center space-y-5 border shadow-2xl ${
-              resultModal.status === 'success'
-                ? 'bg-slate-900 border-emerald-500/50'
-                : 'bg-slate-900 border-red-500/50'
-            }`}
-          >
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl p-6 sm:p-8 text-center space-y-5 border border-zinc-200 bg-white shadow-2xl animate-scaleUp">
             <div
-              className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center shadow-lg ${
+              className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center border shadow-xs ${
                 resultModal.status === 'success'
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                  : 'bg-red-500/20 text-red-400 border border-red-500/40'
+                  ? 'bg-zinc-100 text-zinc-950 border-zinc-200'
+                  : 'bg-red-50 text-red-700 border-red-200'
               }`}
             >
               {resultModal.status === 'success' ? (
-                <CheckCircle2 className="w-10 h-10" />
+                <CheckCircle2 className="w-8 h-8 text-zinc-900" />
               ) : (
-                <XCircle className="w-10 h-10" />
+                <XCircle className="w-8 h-8 text-red-600" />
               )}
             </div>
 
             <div>
-              <h2
-                className={`text-xl font-black ${
-                  resultModal.status === 'success' ? 'text-emerald-400' : 'text-red-400'
-                }`}
-              >
+              <h2 className="text-lg font-black text-zinc-950">
                 {resultModal.title}
               </h2>
-              <p className="text-xs text-slate-300 mt-1.5 font-medium">{resultModal.message}</p>
+              <p className="text-xs text-zinc-500 mt-1 font-medium">{resultModal.message}</p>
             </div>
 
             {resultModal.remaining_balance !== undefined && (
-              <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl text-xs space-y-1">
-                <span className="text-slate-400 font-medium">Saldo Sisa Wristband Pengunjung</span>
-                <span className="block text-xl font-black text-white">
+              <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs space-y-1 font-mono">
+                <span className="text-zinc-500 font-medium text-[11px]">Saldo Sisa Wristband Pengunjung</span>
+                <span className="block text-xl font-black text-zinc-950 tabular-nums">
                   Rp {resultModal.remaining_balance.toLocaleString('id-ID')}
                 </span>
               </div>
@@ -381,7 +371,7 @@ export default function BoothCashierPage() {
 
             <button
               onClick={() => setResultModal(null)}
-              className="w-full py-3.5 rounded-2xl bg-slate-800 text-white font-extrabold text-xs hover:bg-slate-700 border border-slate-700 transition-all"
+              className="w-full py-3 rounded-xl bg-zinc-900 text-white font-bold text-xs hover:bg-zinc-800 transition-all tactile-btn shadow-xs"
             >
               Tutup &amp; Lanjut Transaksi Berikutnya
             </button>
