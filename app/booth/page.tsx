@@ -116,7 +116,7 @@ export default function BoothCashierPage() {
 
         setResultModal({
           status: 'success',
-          title: 'TRANSAKSI BERHASIL! 🟢',
+          title: 'Transaksi Berhasil',
           message: `Pembayaran Rp ${numericAmount.toLocaleString('id-ID')} diterima.`,
           amount: numericAmount,
           remaining_balance: remaining,
@@ -146,7 +146,7 @@ export default function BoothCashierPage() {
       const msg = err.response?.data?.message || err.message || 'Transaksi gagal diproses.';
       setResultModal({
         status: 'failed',
-        title: 'TRANSAKSI GAGAL! 🔴',
+        title: 'Transaksi Gagal',
         message: msg,
         amount: numericAmount,
       });

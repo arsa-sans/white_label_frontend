@@ -14,8 +14,8 @@ export default function LoadingSpinner({
 }: LoadingSpinnerProps) {
   return (
     <div className={`text-center ${className} space-y-3`}>
-      <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto" />
-      <p className="text-xs text-slate-500 font-medium">{message}</p>
+      <Loader2 className="w-8 h-8 animate-spin text-zinc-950 mx-auto" />
+      <p className="text-xs text-zinc-500 font-medium">{message}</p>
     </div>
   );
 }

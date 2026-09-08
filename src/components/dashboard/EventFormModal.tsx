@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Calendar, Clock, MapPin, Users, Plus, Trash2, X } from 'lucide-react';
 import api from '@/lib/api';
 
 export interface GuestStar {
@@ -165,42 +165,57 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-5">
-          <h2 className="text-lg font-black text-white">{isEdit ? '✏️ Edit Event' : '✨ Buat Event Baru'}</h2>
-          <p className="text-indigo-200 text-xs mt-0.5 font-medium">
-            {isEdit
-              ? 'Update detail event Anda'
-              : 'Isi form berikut untuk membuat event baru (tier tiket default akan dibuat otomatis)'}
-          </p>
+    <div className="fixed inset-0 z-50 bg-zinc-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-zinc-200 overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header (Clean Bento Monochrome) */}
+        <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between shrink-0 bg-white">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-zinc-100 border border-zinc-200 text-zinc-950">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold text-zinc-950 tracking-tight">
+                {isEdit ? 'Edit Event' : 'Buat Event Baru'}
+              </h2>
+              <p className="text-zinc-500 text-xs mt-0.5 font-medium">
+                {isEdit
+                  ? 'Perbarui detail dan jadwal event Anda'
+                  : 'Lengkapi formulir untuk menerbitkan event di platform'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-xl hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[75vh]">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
-              <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" /> {error}
             </div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Nama Event *</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Nama Event *</label>
               <input
                 value={form.name}
                 onChange={(e) => set('name', e.target.value)}
-                placeholder="Neon Genesis Music Festival 2026"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Soundwave Music Festival 2026"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Kategori</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Kategori</label>
               <select
                 value={form.category}
                 onChange={(e) => set('category', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c}>{c}</option>
@@ -209,11 +224,11 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Status</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Status</label>
               <select
                 value={form.status}
                 onChange={(e) => set('status', e.target.value as 'draft' | 'published')}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition"
               >
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
@@ -221,139 +236,148 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Lokasi *</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Lokasi Kota / Daerah *</label>
               <input
                 value={form.location}
                 onChange={(e) => set('location', e.target.value)}
                 placeholder="JIExpo Kemayoran, Jakarta"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Nama Venue</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Nama Venue / Hall</label>
               <input
                 value={form.venue_name}
                 onChange={(e) => set('venue_name', e.target.value)}
                 placeholder="Main Stage Arena A"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Mulai Event *</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Tanggal Mulai Event *</label>
               <input
                 type="datetime-local"
                 value={form.start_date}
                 onChange={(e) => set('start_date', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Selesai Event *</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Tanggal Selesai Event *</label>
               <input
                 type="datetime-local"
                 value={form.end_date}
                 onChange={(e) => set('end_date', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-indigo-700 mb-1.5">⏰ Penjualan Tiket Dibuka</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-zinc-500" /> Penjualan Tiket Dibuka</span>
+              </label>
               <input
                 type="datetime-local"
                 value={form.sale_start_at}
                 onChange={(e) => set('sale_start_at', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-indigo-700 mb-1.5">⏰ Penjualan Tiket Ditutup</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-zinc-500" /> Penjualan Tiket Ditutup</span>
+              </label>
               <input
                 type="datetime-local"
                 value={form.sale_end_at}
                 onChange={(e) => set('sale_end_at', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition font-mono"
               />
             </div>
 
             {/* Google Maps Link */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">📍 Link Google Maps (Peta Lokasi Event)</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                <span className="inline-flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-zinc-500" /> URL Google Maps (Peta Lokasi Event)</span>
+              </label>
               <input
                 value={form.venue_map_url}
                 onChange={(e) => set('venue_map_url', e.target.value)}
-                placeholder="https://maps.google.com/?q=-6.1492,106.8455 atau link embed Google Maps"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="https://maps.google.com/?q=-6.1492,106.8455"
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Link ini akan ditampilkan di halaman detail event sebagai peta interaktif dan navigasi pengunjung.
+              <p className="text-[11px] text-zinc-400 mt-1">
+                Link ini akan ditampilkan di halaman detail event sebagai navigasi pengunjung.
               </p>
             </div>
 
             {/* Guest Stars Section */}
-            <div className="sm:col-span-2 border border-slate-200 bg-slate-50/60 rounded-2xl p-4 space-y-3">
+            <div className="sm:col-span-2 border border-zinc-200 bg-zinc-50 rounded-2xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="block text-xs font-extrabold text-slate-800">⭐ Bintang Tamu / Guest Stars</label>
-                  <p className="text-[11px] text-slate-500">Tambahkan artis, pengisi acara, atau pembicara yang tampil.</p>
+                  <label className="block text-xs font-extrabold text-zinc-950 flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-zinc-700" />
+                    Bintang Tamu &amp; Pengisi Acara
+                  </label>
+                  <p className="text-[11px] text-zinc-500">Tambahkan musisi, pembicara, atau guest star yang tampil.</p>
                 </div>
                 <button
                   type="button"
                   onClick={handleAddGuestStar}
-                  className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-xs font-bold transition"
+                  className="px-3 py-1.5 rounded-xl bg-white border border-zinc-200 text-zinc-900 hover:bg-zinc-100 text-xs font-bold transition flex items-center gap-1 tactile-btn"
                 >
-                  + Tambah Bintang Tamu
+                  <Plus className="w-3.5 h-3.5" /> Tambah Guest Star
                 </button>
               </div>
 
               {form.guest_stars.length === 0 ? (
-                <div className="text-center py-4 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white">
-                  Belum ada bintang tamu ditambahkan. Klik tombol di atas untuk menambahkan.
+                <div className="text-center py-4 text-xs text-zinc-400 border border-dashed border-zinc-200 rounded-xl bg-white">
+                  Belum ada pengisi acara yang ditambahkan.
                 </div>
               ) : (
                 <div className="space-y-3">
                   {form.guest_stars.map((g, idx) => (
-                    <div key={idx} className="p-3 bg-white border border-slate-200 rounded-xl space-y-2 relative">
+                    <div key={idx} className="p-3 bg-white border border-zinc-200 rounded-xl space-y-2 relative shadow-2xs">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-extrabold text-indigo-600">Bintang Tamu #{idx + 1}</span>
+                        <span className="text-[11px] font-extrabold text-zinc-800">Guest Star #{idx + 1}</span>
                         <button
                           type="button"
                           onClick={() => handleRemoveGuestStar(idx)}
-                          className="text-[11px] text-red-600 font-bold hover:text-red-800"
+                          className="text-[11px] text-red-600 font-bold hover:text-red-800 flex items-center gap-1"
                         >
-                          Hapus
+                          <Trash2 className="w-3 h-3" /> Hapus
                         </button>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Nama Artis / Tokoh</label>
+                          <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Nama Artis / Tokoh</label>
                           <input
                             value={g.name}
                             onChange={(e) => handleUpdateGuestStar(idx, 'name', e.target.value)}
                             placeholder="Misal: Sheila on 7"
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-500"
+                            className="w-full px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 text-xs font-semibold focus:ring-1 focus:ring-zinc-950"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Role / Peran</label>
+                          <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Peran / Role</label>
                           <input
                             value={g.role}
                             onChange={(e) => handleUpdateGuestStar(idx, 'role', e.target.value)}
-                            placeholder="Main Performer, DJ, etc."
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-500"
+                            placeholder="Main Performer"
+                            className="w-full px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 text-xs font-semibold focus:ring-1 focus:ring-zinc-950"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 mb-1">URL Foto Bintang Tamu</label>
+                          <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">URL Foto Artis</label>
                           <input
                             value={g.photo_url}
                             onChange={(e) => handleUpdateGuestStar(idx, 'photo_url', e.target.value)}
-                            placeholder="https://images.unsplash.com/..."
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-500"
+                            placeholder="https://..."
+                            className="w-full px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 text-xs font-semibold focus:ring-1 focus:ring-zinc-950"
                           />
                         </div>
                       </div>
@@ -364,49 +388,49 @@ export default function EventFormModal({ event, onClose, onSaved }: EventFormMod
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Tata Letak Area Penonton &amp; Panggung</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Tata Letak Area Penonton &amp; Panggung</label>
               <input
                 value={form.venue_layout_info}
                 onChange={(e) => set('venue_layout_info', e.target.value)}
-                placeholder="Misal: Panggung di titik Utara. VIP jarak 0-10m, CAT 1 10-25m, Festival di belakang."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Panggung di titik Utara. VIP jarak 0-10m, CAT 1 10-25m, Festival di belakang."
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Banner URL</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">URL Banner Gambar Event</label>
               <input
                 value={form.banner_url}
                 onChange={(e) => set('banner_url', e.target.value)}
-                placeholder="https://..."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="https://images.unsplash.com/..."
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Deskripsi Event</label>
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">Deskripsi Event</label>
               <textarea
                 value={form.description}
                 onChange={(e) => set('description', e.target.value)}
                 rows={3}
-                placeholder="Deskripsi singkat event Anda..."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                placeholder="Deskripsi lengkap mengenai event Anda..."
+                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition resize-none"
               />
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-3 border-t border-zinc-100">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-slate-300 text-sm font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+              className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-700 hover:bg-zinc-100 transition-colors tactile-btn"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 shadow-xs transition-colors flex items-center justify-center gap-2 tactile-btn disabled:opacity-50"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Buat Event'}

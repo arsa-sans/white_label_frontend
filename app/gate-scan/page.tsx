@@ -261,19 +261,19 @@ export default function GateScanPage() {
       )}
 
       {/* Top Header & Offline Sync Badge */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-zinc-200 shadow-2xs">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-            <QrCode className="w-6 h-6 text-indigo-600" />
+          <h1 className="text-2xl font-black text-zinc-950 flex items-center gap-2 tracking-tight">
+            <QrCode className="w-6 h-6 text-zinc-900" />
             Gate Access Scanner (Staff Mode)
           </h1>
-          <p className="text-xs text-slate-500 font-medium">Validator tiket dengan performa sub-500ms &amp; fallback sinkronisasi offline.</p>
+          <p className="text-xs text-zinc-500 font-medium mt-1">Validator tiket dengan performa sub-500ms &amp; sinkronisasi offline.</p>
         </div>
 
         {/* OfflineSyncBadge */}
         <div className="flex items-center gap-3">
           <div
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-extrabold ${
               isOnline
                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                 : 'bg-amber-50 text-amber-800 border border-amber-200'
@@ -286,7 +286,7 @@ export default function GateScanPage() {
           {pendingLogs > 0 && (
             <button
               onClick={handleSyncLogsClick}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-950 text-white hover:bg-zinc-800 shadow-xs tactile-btn"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Sync ({pendingLogs})
@@ -297,14 +297,14 @@ export default function GateScanPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Scanner Control & Simulator */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-6 shadow-xs">
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Scan className="w-5 h-5 text-indigo-600" />
+        <div className="bg-white p-6 rounded-3xl border border-zinc-200 space-y-6 shadow-2xs">
+          <h2 className="text-base font-extrabold text-zinc-950 flex items-center gap-2">
+            <Scan className="w-5 h-5 text-zinc-900" />
             Simulasi Input QR Token
           </h2>
 
           <div className="space-y-3">
-            <label className="block text-xs font-semibold text-slate-700">
+            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider">
               Tempel QR Token Base64 atau Input Manual:
             </label>
             <textarea
@@ -312,12 +312,12 @@ export default function GateScanPage() {
               value={qrInput}
               onChange={(e) => setQrInput(e.target.value)}
               placeholder="Masukkan string payload QR token dari halaman My Tickets..."
-              className="w-full p-3 rounded-2xl border border-slate-300 bg-slate-50 font-mono text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full p-3 rounded-2xl border border-zinc-200 bg-zinc-50 font-mono text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white"
             />
             <button
               onClick={() => triggerScan()}
               disabled={loading || !qrInput}
-              className="w-full py-3 rounded-2xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 shadow-md shadow-indigo-600/30 transition-all"
+              className="w-full py-3 rounded-xl bg-zinc-950 text-white font-bold text-xs hover:bg-zinc-800 shadow-xs transition-all tactile-btn disabled:opacity-50"
             >
               {loading ? 'Verifikasi Scan...' : 'SCAN & VERIFIKASI SEKARANG'}
             </button>
@@ -334,7 +334,7 @@ export default function GateScanPage() {
                   : 'bg-red-50 border-red-200 text-red-900'
               }`}
             >
-              <div className="text-sm uppercase tracking-wider">{scanResult.message}</div>
+              <div className="text-sm uppercase tracking-wider font-extrabold">{scanResult.message}</div>
               {scanResult.seat_name && <div>Kursi: {scanResult.seat_name} ({scanResult.category})</div>}
               {scanResult.ticket_id && <div className="font-mono text-[10px]">ID: {scanResult.ticket_id}</div>}
             </div>
@@ -342,30 +342,30 @@ export default function GateScanPage() {
         </div>
 
         {/* Scan Log History */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-4 shadow-xs">
-          <h2 className="text-base font-bold text-slate-900">Riwayat Scan Gate Sesi Ini</h2>
+        <div className="bg-white p-6 rounded-3xl border border-zinc-200 space-y-4 shadow-2xs">
+          <h2 className="text-base font-extrabold text-zinc-950">Riwayat Scan Gate Sesi Ini</h2>
           {scanLogs.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-xs font-medium">Belum ada aktivitas scan gate.</div>
+            <div className="text-center py-12 text-zinc-400 text-xs font-medium">Belum ada aktivitas scan gate.</div>
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
               {scanLogs.map((log) => (
                 <div
                   key={log.id}
-                  className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
+                  className="p-3 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-between text-xs"
                 >
                   <div>
-                    <span className="font-bold text-slate-900 block">
-                      {log.remote ? `📡 ${log.device}` : ''} Kursi: {log.seat}
+                    <span className="font-extrabold text-zinc-950 block">
+                      {log.remote ? `[${log.device}] ` : ''}Kursi: {log.seat}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-medium">{log.time} — {log.ticket_id}</span>
+                    <span className="text-[10px] text-zinc-400 font-mono">{log.time} — {log.ticket_id}</span>
                   </div>
                   <span
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
                       log.result === 'valid'
-                        ? 'bg-emerald-100 text-emerald-800'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                         : log.result === 'duplicate'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-red-100 text-red-800'
+                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                        : 'bg-red-50 text-red-700 border-red-200'
                     }`}
                   >
                     {log.result}

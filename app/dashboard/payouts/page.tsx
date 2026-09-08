@@ -3,24 +3,21 @@
 /**
  * app/dashboard/payouts/page.tsx
  *
- * FASE 11 — Request Payout & Settlement History
+ * Request Payout & Settlement History
  *
  * Features:
  *   - Overview revenue vs withdrawable balance
  *   - Submit Payout Request Modal (Bank selection, account details, amount validation)
- *   - Payout settlement history table (status: requested → approved → paid)
+ *   - Payout settlement history table (status: requested -> approved -> paid)
  *   - Admin status update actions (for demo testing)
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Building2,
   CircleDollarSign,
-  ArrowUpRight,
   Clock,
   CheckCircle2,
-  XCircle,
   Plus,
   ArrowLeft,
   ChevronRight,
@@ -29,6 +26,7 @@ import {
   AlertCircle,
   Banknote,
   ShieldCheck,
+  Building,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
@@ -163,7 +161,7 @@ export default function PayoutsPage() {
   const isAdmin = (user?.role as string) === 'admin' || (user?.role as string) === 'superadmin';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 w-full max-w-full overflow-x-hidden">
       {/* Toast */}
       {toast && (
         <div
@@ -173,7 +171,7 @@ export default function PayoutsPage() {
               : 'bg-red-50 border-red-200 text-red-800'
           }`}
         >
-          {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-red-600" />}
           {toast.msg}
           <button onClick={() => setToast(null)} className="ml-2 opacity-60 hover:opacity-100">
             ✕
@@ -187,26 +185,26 @@ export default function PayoutsPage() {
           <div className="flex items-center gap-2 mb-1">
             <button
               onClick={() => router.push('/dashboard')}
-              className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+              className="flex items-center gap-1 text-xs font-bold text-zinc-500 hover:text-zinc-950 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
             </button>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-xs font-bold text-slate-800">Pencairan Dana (Payout)</span>
+            <ChevronRight className="w-3.5 h-3.5 text-zinc-300" />
+            <span className="text-xs font-bold text-zinc-800">Pencairan Dana</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-            <Banknote className="w-6 h-6 text-indigo-600" />
+          <h1 className="text-2xl font-black text-zinc-950 flex items-center gap-2 tracking-tight">
+            <Banknote className="w-6 h-6 text-zinc-900" />
             Pencairan Dana &amp; Settlement Organizer
           </h1>
-          <p className="text-xs text-slate-500 font-medium mt-1">
-            Pengajuan withdraw hasil penjualan tiket ke rekening bank resmi organizer.
+          <p className="text-xs text-zinc-500 font-medium mt-1">
+            Pengajuan withdraw hasil penjualan tiket ke rekening bank resmi organizer terverifikasi.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={loadData}
-            className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2.5 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-100 transition-colors tactile-btn"
             title="Refresh Data"
           >
             <RefreshCw className="w-4 h-4" />
@@ -214,7 +212,7 @@ export default function PayoutsPage() {
 
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-950 text-white font-bold text-xs hover:bg-zinc-800 shadow-xs transition-all tactile-btn"
           >
             <Plus className="w-4 h-4" />
             Ajukan Pencairan Dana
@@ -222,66 +220,66 @@ export default function PayoutsPage() {
         </div>
       </div>
 
-      {/* Metric Cards */}
+      {/* Metric Cards (Bento Style) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-white space-y-3 shadow-lg shadow-indigo-600/20">
-          <div className="flex items-center justify-between opacity-80 text-xs font-bold uppercase tracking-wider">
+        <div className="bg-zinc-950 text-white rounded-3xl p-6 space-y-3 shadow-xs border border-zinc-800">
+          <div className="flex items-center justify-between opacity-70 text-xs font-bold uppercase tracking-wider">
             <span>Saldo Siap Dicairkan</span>
-            <CircleDollarSign className="w-5 h-5" />
+            <CircleDollarSign className="w-5 h-5 text-white" />
           </div>
-          <div className="text-3xl font-black">
+          <div className="text-3xl font-black font-mono">
             Rp {withdrawableBalance.toLocaleString('id-ID')}
           </div>
-          <div className="text-[11px] opacity-80 font-medium">
-            Total Revenue Ticket Sales dikurangi pencairan sebelumnya.
+          <div className="text-[11px] opacity-70 font-medium">
+            Total Revenue Ticket Sales dikurangi pencairan yang telah diproses.
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+        <div className="bg-white rounded-3xl border border-zinc-200 p-6 space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between text-zinc-400 text-xs font-bold uppercase tracking-wider">
             <span>Total Gross Revenue</span>
-            <Banknote className="w-5 h-5 text-indigo-600" />
+            <Banknote className="w-5 h-5 text-zinc-700" />
           </div>
-          <div className="text-2xl font-black text-slate-900">
+          <div className="text-2xl font-black text-zinc-950 font-mono">
             Rp {totalRevenue.toLocaleString('id-ID')}
           </div>
-          <div className="text-[11px] text-slate-400 font-medium">Omset kotor dari order berstatus Paid</div>
+          <div className="text-[11px] text-zinc-400 font-medium">Omset kotor dari order berstatus Paid</div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+        <div className="bg-white rounded-3xl border border-zinc-200 p-6 space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between text-zinc-400 text-xs font-bold uppercase tracking-wider">
             <span>Pencairan Disetujui / Paid</span>
             <ShieldCheck className="w-5 h-5 text-emerald-600" />
           </div>
-          <div className="text-2xl font-black text-emerald-600">
+          <div className="text-2xl font-black text-emerald-800 font-mono">
             Rp {alreadyRequested.toLocaleString('id-ID')}
           </div>
-          <div className="text-[11px] text-slate-400 font-medium">
+          <div className="text-[11px] text-zinc-400 font-medium font-mono">
             {payouts.length} total riwayat pengajuan settlement
           </div>
         </div>
       </div>
 
       {/* History Table */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-xs">
-        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-indigo-600" />
+      <div className="bg-white rounded-3xl border border-zinc-200 p-6 space-y-4 shadow-2xs">
+        <h2 className="text-sm font-extrabold text-zinc-950 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-zinc-700" />
           Riwayat Pengajuan Settlement
         </h2>
 
         {loading ? (
-          <div className="text-center py-12 text-slate-400 text-xs font-medium animate-pulse">
+          <div className="text-center py-12 text-zinc-400 text-xs font-medium animate-pulse">
             Memuat riwayat payout...
           </div>
         ) : payouts.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-xs font-medium">
+          <div className="text-center py-12 text-zinc-400 text-xs font-medium">
             Belum ada pengajuan pencairan dana.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <tr className="border-b border-zinc-100 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                   <th className="pb-3 pr-4">ID Request</th>
                   <th className="pb-3 pr-4">Nominal</th>
                   <th className="pb-3 pr-4">Rekening Tujuan</th>
@@ -290,35 +288,35 @@ export default function PayoutsPage() {
                   {isAdmin && <th className="pb-3 text-right">Aksi Admin</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-zinc-100">
                 {payouts.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 pr-4 font-mono font-bold text-slate-800">{p.id}</td>
-                    <td className="py-3.5 pr-4 font-black text-slate-900 text-sm">
+                  <tr key={p.id} className="hover:bg-zinc-50/80 transition-colors">
+                    <td className="py-3.5 pr-4 font-mono font-bold text-zinc-800">{p.id}</td>
+                    <td className="py-3.5 pr-4 font-black text-zinc-950 text-sm font-mono">
                       Rp {p.amount.toLocaleString('id-ID')}
                     </td>
                     <td className="py-3.5 pr-4">
-                      <span className="font-bold text-slate-800 block">
+                      <span className="font-bold text-zinc-800 block">
                         {p.bank_name} - {p.account_number}
                       </span>
-                      <span className="text-[11px] text-slate-400 font-medium">a.n. {p.account_holder}</span>
+                      <span className="text-[11px] text-zinc-400 font-medium">a.n. {p.account_holder}</span>
                     </td>
                     <td className="py-3.5 pr-4">
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
                           p.status === 'paid'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             : p.status === 'approved'
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            ? 'bg-zinc-100 text-zinc-900 border-zinc-300'
                             : p.status === 'requested'
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
                             : 'bg-red-50 text-red-700 border-red-200'
                         }`}
                       >
                         {p.status}
                       </span>
                     </td>
-                    <td className="py-3.5 pr-4 text-slate-500 font-medium">
+                    <td className="py-3.5 pr-4 text-zinc-500 font-mono font-medium">
                       {new Date(p.requested_at).toLocaleString('id-ID', {
                         dateStyle: 'medium',
                         timeStyle: 'short',
@@ -326,11 +324,11 @@ export default function PayoutsPage() {
                     </td>
 
                     {isAdmin && (
-                      <td className="py-3.5 text-right space-x-1">
+                      <td className="py-3.5 text-right space-x-1.5">
                         {p.status === 'requested' && (
                           <button
                             onClick={() => handleUpdateStatus(p.id, 'approved')}
-                            className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-[10px] font-bold hover:bg-blue-200 transition-colors"
+                            className="px-2.5 py-1 rounded-lg bg-zinc-100 border border-zinc-200 text-zinc-900 text-[10px] font-bold hover:bg-zinc-200 transition-colors tactile-btn"
                           >
                             Approve
                           </button>
@@ -338,7 +336,7 @@ export default function PayoutsPage() {
                         {(p.status === 'requested' || p.status === 'approved') && (
                           <button
                             onClick={() => handleUpdateStatus(p.id, 'paid')}
-                            className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold hover:bg-emerald-200 transition-colors"
+                            className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700 transition-colors tactile-btn"
                           >
                             Mark Paid
                           </button>
@@ -355,45 +353,48 @@ export default function PayoutsPage() {
 
       {/* Request Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 p-6 space-y-4">
+        <div className="fixed inset-0 z-50 bg-zinc-950/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-zinc-200 p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black text-slate-900">Form Pengajuan Payout</h2>
+              <h2 className="text-base font-extrabold text-zinc-950 flex items-center gap-2">
+                <Building className="w-5 h-5 text-zinc-900" />
+                Form Pengajuan Payout
+              </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs hover:bg-slate-200"
+                className="w-7 h-7 rounded-full bg-zinc-100 text-zinc-500 flex items-center justify-center font-bold text-xs hover:bg-zinc-200"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs space-y-1">
-              <span className="block text-slate-500 font-medium">Maksimal Saldo Tersedia</span>
-              <span className="text-sm font-black text-indigo-700">
+            <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs space-y-1">
+              <span className="block text-zinc-500 font-medium">Maksimal Saldo Tersedia</span>
+              <span className="text-sm font-black text-zinc-950 font-mono">
                 Rp {withdrawableBalance.toLocaleString('id-ID')}
               </span>
             </div>
 
             <form onSubmit={handleSubmitRequest} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Nominal Pencairan (Rp) *</label>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">Nominal Pencairan (Rp) *</label>
                 <input
                   type="number"
                   min="50000"
                   max={withdrawableBalance}
                   value={form.amount}
                   onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  placeholder="e.g. 50000000"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="50000000"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Bank Tujuan *</label>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">Bank Tujuan *</label>
                 <select
                   value={form.bank_name}
                   onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white"
                 >
                   {BANKS.map((b) => (
                     <option key={b.code} value={b.code}>
@@ -404,24 +405,24 @@ export default function PayoutsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Nomor Rekening *</label>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">Nomor Rekening *</label>
                 <input
                   type="text"
                   value={form.account_number}
                   onChange={(e) => setForm({ ...form, account_number: e.target.value })}
-                  placeholder="e.g. 8820194821"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="8820194821"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Nama Pemilik Rekening *</label>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">Nama Pemilik Rekening *</label>
                 <input
                   type="text"
                   value={form.account_holder}
                   onChange={(e) => setForm({ ...form, account_holder: e.target.value })}
-                  placeholder="e.g. PT Elena Media Utama"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="PT Promotor Musik Mandiri"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white"
                 />
               </div>
 
@@ -429,14 +430,14 @@ export default function PayoutsPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                  className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-700 hover:bg-zinc-100 tactile-btn"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || withdrawableBalance <= 0}
-                  className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50 flex items-center justify-center gap-1"
+                  className="flex-1 py-2.5 rounded-xl bg-zinc-950 text-white text-xs font-bold hover:bg-zinc-800 shadow-xs disabled:opacity-50 flex items-center justify-center gap-1.5 tactile-btn"
                 >
                   {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {submitting ? 'Mengirim...' : 'Kirim Pengajuan'}
