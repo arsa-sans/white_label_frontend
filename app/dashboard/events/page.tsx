@@ -13,10 +13,10 @@
  *  - Ticket Tier Manager per event (inline drawer)
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Plus, Ticket, Settings2, ArrowLeft, XCircle, CheckCircle2, AlertCircle
+  Plus, Ticket, Settings2, ArrowLeft, XCircle, CheckCircle2, AlertCircle, Search, Filter, X
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
@@ -25,6 +25,8 @@ import EventFormModal, { EventItem } from '@/components/dashboard/EventFormModal
 import TicketTierDrawer from '@/components/dashboard/TicketTierDrawer';
 import SessionDrawer from '@/components/dashboard/SessionDrawer';
 import EventCard from '@/components/dashboard/EventCard';
+
+const CATEGORIES = ['All', 'Concert', 'Festival', 'Conference', 'Sport', 'Exhibition', 'Workshop', 'General'] as const;
 
 function Toast({ msg, type, onClose }: { msg: string; type: 'success' | 'error'; onClose: () => void }) {
   useEffect(() => {
@@ -55,6 +57,8 @@ export default function OrganizerEventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'published'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [managingTiersFor, setManagingTiersFor] = useState<EventItem | null>(null);
@@ -70,15 +74,14 @@ export default function OrganizerEventsPage() {
   const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const params = filterStatus !== 'all' ? `?status=${filterStatus}` : '';
-      const res = await api.get(`/events/me${params}`);
+      const res = await api.get('/events/me');
       if (res.data.success) setEvents(res.data.data);
     } catch {
       setToast({ msg: 'Gagal memuat events. Pastikan Anda login sebagai organizer.', type: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [filterStatus]);
+  }, []);
 
   useEffect(() => {
     loadEvents();
@@ -142,6 +145,29 @@ export default function OrganizerEventsPage() {
     }
   };
 
+  // Tab counts
+  const allCount = events.length;
+  const publishedCount = useMemo(() => events.filter((e) => e.status === 'published').length, [events]);
+  const draftCount = useMemo(() => events.filter((e) => e.status === 'draft').length, [events]);
+
+  // Combined filters: Status + Category + Search Query
+  const filtered = useMemo(() => {
+    return events.filter((e) => {
+      const matchStatus = filterStatus === 'all' || e.status === filterStatus;
+      const matchCategory =
+        selectedCategory === 'All' ||
+        (e.category && e.category.toLowerCase() === selectedCategory.toLowerCase());
+      const query = searchQuery.toLowerCase().trim();
+      const matchQuery =
+        !query ||
+        (e.name && e.name.toLowerCase().includes(query)) ||
+        (e.location && e.location.toLowerCase().includes(query)) ||
+        (e.venue_name && e.venue_name.toLowerCase().includes(query));
+
+      return matchStatus && matchCategory && matchQuery;
+    });
+  }, [events, filterStatus, selectedCategory, searchQuery]);
+
   if (!user || (user.role !== 'organizer' && user.role !== 'admin')) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
@@ -153,8 +179,6 @@ export default function OrganizerEventsPage() {
       </div>
     );
   }
-
-  const filtered = filterStatus === 'all' ? events : events.filter((e) => e.status === filterStatus);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 w-full max-w-full overflow-x-hidden">
@@ -188,7 +212,7 @@ export default function OrganizerEventsPage() {
           </div>
           <h1 className="text-2xl font-black text-zinc-950 flex items-center gap-2 tracking-tight">
             <Settings2 className="w-6 h-6 text-zinc-900" />
-            Pengelolaan Event &amp; Tiket (CRUD)
+            Pengelolaan Event &amp; Tiket
           </h1>
           <p className="text-xs text-zinc-500 font-medium mt-1">
             Buat event baru, atur zonasi area panggung penonton, dan sesuaikan kuota tiket per tier.
@@ -206,32 +230,122 @@ export default function OrganizerEventsPage() {
         </button>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 pb-3">
-        {(['all', 'published', 'draft'] as const).map((st) => (
-          <button
-            key={st}
-            onClick={() => setFilterStatus(st)}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold capitalize transition-colors tactile-btn ${
-              filterStatus === st
-                ? 'bg-zinc-950 text-white shadow-2xs'
-                : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950'
-            }`}
-          >
-            {st === 'all' ? 'Semua Event' : st}
-          </button>
-        ))}
+      {/* Navigation Tabs with Badges & Search/Category Toolbar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
+        {/* Status Tabs with Count Badges */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+          {(
+            [
+              { id: 'all', label: 'Semua Event', count: allCount },
+              { id: 'published', label: 'Published', count: publishedCount },
+              { id: 'draft', label: 'Draft', count: draftCount },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilterStatus(tab.id)}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all tactile-btn ${
+                filterStatus === tab.id
+                  ? 'bg-zinc-950 text-white shadow-2xs'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950'
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold transition-colors ${
+                  filterStatus === tab.id
+                    ? 'bg-zinc-800 text-zinc-100'
+                    : 'bg-zinc-100 text-zinc-600 border border-zinc-200/60'
+                }`}
+              >
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Search & Category Filter Toolbar */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Search Input */}
+          <div className="relative min-w-[200px] sm:min-w-[240px]">
+            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari event, lokasi, venue..."
+              className="w-full pl-8 pr-7 py-1.5 bg-white border border-zinc-200 rounded-xl text-xs font-medium text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 transition"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 p-0.5"
+                title="Hapus pencarian"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Category Dropdown */}
+          <div className="flex items-center gap-1.5 bg-white border border-zinc-200 rounded-xl px-2.5 py-1 text-xs">
+            <Filter className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="bg-transparent text-xs font-bold text-zinc-800 focus:outline-none cursor-pointer pr-1"
+            >
+              <option value="All">Semua Kategori</option>
+              {CATEGORIES.filter((c) => c !== 'All').map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Reset Filters */}
+          {(searchQuery || selectedCategory !== 'All') && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('All');
+              }}
+              className="text-xs font-bold text-zinc-500 hover:text-zinc-950 underline px-1 py-1"
+            >
+              Reset Filter
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Event Grid */}
       {loading ? (
         <div className="text-center py-20 text-zinc-400 text-xs animate-pulse font-medium">Memuat daftar event Anda...</div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-3xl border border-zinc-200 p-8 space-y-3 shadow-2xs">
-          <Ticket className="w-10 h-10 text-zinc-300 mx-auto" />
-          <h3 className="text-base font-extrabold text-zinc-950">Belum Ada Event</h3>
-          <p className="text-xs text-zinc-500">Klik tombol &ldquo;Buat Event Baru&rdquo; di atas untuk menerbitkan event pertama Anda.</p>
-        </div>
+        events.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-3xl border border-zinc-200 p-8 space-y-3 shadow-2xs">
+            <Ticket className="w-10 h-10 text-zinc-300 mx-auto" />
+            <h3 className="text-base font-extrabold text-zinc-950">Belum Ada Event</h3>
+            <p className="text-xs text-zinc-500">Klik tombol &ldquo;Buat Event Baru&rdquo; di atas untuk menerbitkan event pertama Anda.</p>
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-white rounded-3xl border border-zinc-200 p-8 space-y-3 shadow-2xs">
+            <Search className="w-10 h-10 text-zinc-300 mx-auto" />
+            <h3 className="text-base font-extrabold text-zinc-950">Event Tidak Ditemukan</h3>
+            <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+              Tidak ada event yang sesuai dengan status &ldquo;{filterStatus}&rdquo;, kategori &ldquo;{selectedCategory}&rdquo;, atau kata kunci &ldquo;{searchQuery}&rdquo;.
+            </p>
+            <button
+              onClick={() => {
+                setFilterStatus('all');
+                setSelectedCategory('All');
+                setSearchQuery('');
+              }}
+              className="inline-flex items-center gap-1 px-4 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-bold transition tactile-btn"
+            >
+              Reset Semua Filter
+            </button>
+          </div>
+        )
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((evt) => (
@@ -269,6 +383,8 @@ export default function OrganizerEventsPage() {
           onClose={() => setManagingSessionsFor(null)}
           eventId={managingSessionsFor.id}
           eventName={managingSessionsFor.name}
+          startDate={managingSessionsFor.start_date}
+          endDate={managingSessionsFor.end_date}
         />
       )}
     </div>

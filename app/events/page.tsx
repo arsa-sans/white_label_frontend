@@ -48,7 +48,9 @@ export default function EventsCatalogPage() {
 
   const filteredEvents = events.filter((e) =>
     e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.location.toLowerCase().includes(searchQuery.toLowerCase())
+    e.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (e.venue_name && e.venue_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (e.category && e.category.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -83,7 +85,7 @@ export default function EventsCatalogPage() {
       {/* ─── Filter & Search Bar ───────────────────────────────────────── */}
       <section className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs">
         <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          {['All', 'Concert', 'Conference'].map((cat) => (
+          {['All', 'Concert', 'Festival', 'Conference', 'Sport', 'Exhibition', 'Workshop', 'General'].map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}

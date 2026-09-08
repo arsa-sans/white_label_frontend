@@ -20,6 +20,8 @@ interface SessionDrawerProps {
   onClose: () => void;
   eventId: string;
   eventName: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export default function SessionDrawer({
@@ -27,6 +29,8 @@ export default function SessionDrawer({
   onClose,
   eventId,
   eventName,
+  startDate,
+  endDate,
 }: SessionDrawerProps) {
   const [sessions, setSessions] = useState<EventSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +46,9 @@ export default function SessionDrawer({
   const [sortOrder, setSortOrder] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const minDate = startDate ? startDate.slice(0, 10) : undefined;
+  const maxDate = endDate ? endDate.slice(0, 10) : undefined;
 
   useEffect(() => {
     if (isOpen && eventId) {
@@ -66,7 +73,24 @@ export default function SessionDrawer({
   const handleOpenCreate = () => {
     setEditingSession(null);
     setName(`Day ${sessions.length + 1}`);
-    setDate(new Date().toISOString().slice(0, 10));
+
+    // Default to minDate or calculate next available day within event range
+    let defaultDate = minDate || new Date().toISOString().slice(0, 10);
+    if (minDate && sessions.length > 0) {
+      try {
+        const nextDay = new Date(minDate);
+        nextDay.setDate(nextDay.getDate() + sessions.length);
+        const candidate = nextDay.toISOString().slice(0, 10);
+        if (!maxDate || candidate <= maxDate) {
+          defaultDate = candidate;
+        } else if (maxDate) {
+          defaultDate = maxDate;
+        }
+      } catch {
+        defaultDate = minDate;
+      }
+    }
+    setDate(defaultDate);
     setStartTime('14:00');
     setEndTime('22:00');
     setDescription('');
@@ -78,7 +102,7 @@ export default function SessionDrawer({
   const handleOpenEdit = (session: EventSession) => {
     setEditingSession(session);
     setName(session.name);
-    setDate(session.date ? session.date.slice(0, 10) : '');
+    setDate(session.date ? session.date.slice(0, 10) : (minDate || ''));
     setStartTime(session.start_time);
     setEndTime(session.end_time);
     setDescription(session.description || '');
@@ -91,6 +115,16 @@ export default function SessionDrawer({
     e.preventDefault();
     if (!name || !date || !startTime || !endTime) {
       setError('Semua kolom wajib diisi.');
+      return;
+    }
+
+    if (minDate && date < minDate) {
+      setError(`Tanggal sesi (${date}) tidak boleh sebelum tanggal mulai event (${minDate}).`);
+      return;
+    }
+
+    if (maxDate && date > maxDate) {
+      setError(`Tanggal sesi (${date}) tidak boleh melebihi tanggal selesai event (${maxDate}).`);
       return;
     }
 
@@ -151,7 +185,14 @@ export default function SessionDrawer({
                 <h2 className="text-base font-extrabold text-zinc-950 tracking-tight">
                   Kelola Sesi &amp; Hari Event
                 </h2>
-                <p className="text-xs text-zinc-500 font-medium truncate max-w-xs">{eventName}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-xs text-zinc-500 font-medium truncate max-w-[200px]">{eventName}</p>
+                  {minDate && (
+                    <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 border border-zinc-200 shrink-0">
+                      {minDate} {maxDate && maxDate !== minDate ? `→ ${maxDate}` : ''}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <button
@@ -217,10 +258,17 @@ export default function SessionDrawer({
                     <input
                       type="date"
                       value={date}
+                      min={minDate}
+                      max={maxDate}
                       onChange={(e) => setDate(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 bg-white text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950 font-mono"
                       required
                     />
+                    {minDate && maxDate && (
+                      <p className="text-[10px] text-zinc-500 mt-1 leading-tight">
+                        Rentang: <span className="font-mono text-zinc-700 font-semibold">{minDate}</span> s/d <span className="font-mono text-zinc-700 font-semibold">{maxDate}</span>
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1">Urutan (Sort Order)</label>
