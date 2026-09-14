@@ -120,7 +120,7 @@ export default function RefundModal({ isOpen, onClose, ticket, onSuccess }: Refu
                     }`}
                   >
                     <RefreshCw className="w-4 h-4 text-red-600" />
-                    Refund (Dana)
+                    Refund ke E-Wallet
                   </button>
                   <button
                     onClick={() => setType('reschedule')}
@@ -135,6 +135,12 @@ export default function RefundModal({ isOpen, onClose, ticket, onSuccess }: Refu
                   </button>
                 </div>
               </div>
+
+              {type === 'refund' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 text-xs text-blue-700 font-medium leading-relaxed">
+                  💡 Dana refund akan dikreditkan langsung ke <strong>Saldo E-Wallet website WhiteLabel</strong> Anda, apapun metode pembayaran yang digunakan saat checkout.
+                </div>
+              )}
 
               {/* Reason */}
               <div>

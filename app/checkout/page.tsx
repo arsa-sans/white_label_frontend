@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Plus,
   Minus,
+  Wallet,
 } from 'lucide-react';
 import { useAppStore, TicketTier } from '@/lib/store';
 import api from '@/lib/api';
@@ -50,10 +51,15 @@ function CheckoutContent() {
   const [eventName, setEventName] = useState<string>('');
 
   // Timer state
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(60);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(180);
   const [timerExpired, setTimerExpired] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const expiresAtRef = useRef<number>(0);
+
+  // Payment method selection
+  const [paymentMethod, setPaymentMethod] = useState<'midtrans' | 'wallet'>('wallet');
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [walletLoading, setWalletLoading] = useState(true);
 
   // Promo Code State
   const [promoInput, setPromoInput] = useState('');
@@ -86,10 +92,25 @@ function CheckoutContent() {
     });
   };
 
-  // Load Midtrans Snap.js on mount
+  // Load Midtrans Snap.js and fetch wallet balance on mount
   useEffect(() => {
     loadSnapScript();
+    fetchWalletBalance();
   }, []);
+
+  const fetchWalletBalance = async () => {
+    setWalletLoading(true);
+    try {
+      const res = await api.get('/cashless/wallet');
+      if (res.data.success) {
+        setWalletBalance(res.data.data.wallet?.balance || 0);
+      }
+    } catch {
+      // silent
+    } finally {
+      setWalletLoading(false);
+    }
+  };
 
   // Validate session & start timer on mount
   useEffect(() => {
@@ -164,7 +185,7 @@ function CheckoutContent() {
         await confirm({
           segmentTag: 'SESI HABIS',
           title: 'Waktu Checkout Habis',
-          message: 'Waktu checkout Anda telah habis (1 menit). Silakan masuk antrian kembali untuk membeli tiket.',
+          message: 'Waktu checkout Anda telah habis (3 menit). Silakan masuk antrian kembali untuk membeli tiket.',
           confirmText: 'Kembali ke Event',
           cancelText: 'Tutup',
           variant: 'warning',
@@ -367,20 +388,28 @@ function CheckoutContent() {
     }
   };
 
-  // ── Secondary: Sandbox Dummy Simulation (Instant Demo / Testing) ───────────
-  const handleDummyPay = async () => {
+  // ── Pay via WhiteLabel Website E-Wallet ───────────────────────────────
+  const handleWalletPay = async () => {
     if (totalTickets === 0) {
-      setErrorMsg('Pilih minimal 1 tiket sebelum memulai simulasi.');
+      setErrorMsg('Pilih minimal 1 tiket sebelum melanjutkan.');
+      return;
+    }
+    if (timerExpired) {
+      setErrorMsg('Waktu checkout telah habis. Silakan masuk antrian kembali.');
+      return;
+    }
+    if (walletBalance < finalPrice) {
+      setErrorMsg(`Saldo E-Wallet tidak mencukupi. Saldo Anda: Rp ${walletBalance.toLocaleString('id-ID')}, Total tagihan: Rp ${finalPrice.toLocaleString('id-ID')}`);
       return;
     }
 
     const isConfirmed = await confirm({
-      segmentTag: 'MODE TESTING / DEMO',
-      title: 'Simulasi Sandbox Dummy',
-      message: `Jalankan simulasi pembayaran instan untuk total Rp ${finalPrice.toLocaleString('id-ID')} (${totalTickets} tiket)? Ini akan menerbitkan tiket QR valid untuk testing/demo.`,
-      confirmText: 'Mulai Simulasi Bayar',
+      segmentTag: 'PEMBAYARAN SALDO E-WALLET',
+      title: 'Konfirmasi Pembayaran E-Wallet',
+      message: `Saldo E-Wallet Anda akan dipotong sebesar Rp ${finalPrice.toLocaleString('id-ID')} untuk ${totalTickets} tiket.${appliedPromo ? ` (Termasuk hemat diskon Rp ${discountAmount.toLocaleString('id-ID')})` : ''} Lanjutkan pembayaran?`,
+      confirmText: 'Bayar dengan Saldo E-Wallet',
       cancelText: 'Batal',
-      variant: 'warning',
+      variant: 'info',
     });
 
     if (!isConfirmed) return;
@@ -389,7 +418,7 @@ function CheckoutContent() {
     setErrorMsg('');
 
     try {
-      const idempotencyKey = `idemp-sim-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const idempotencyKey = `idemp-wlt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       const orderRes = await api.post(
         '/payments/orders',
         {
@@ -399,7 +428,8 @@ function CheckoutContent() {
             quantity: item.quantity,
           })),
           promo_code: appliedPromo ? appliedPromo.promo?.code || promoInput.toUpperCase() : undefined,
-          payment_gateway: 'SANDBOX_SIMULATION',
+          payment_method: 'wallet',
+          payment_gateway: 'WALLET',
           customer_name: user?.name,
           customer_email: user?.email,
         },
@@ -417,19 +447,13 @@ function CheckoutContent() {
 
       if (timerRef.current) clearInterval(timerRef.current);
 
-      // Settle payment instantly in dummy mode
-      const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
-        payment_method: 'sandbox_dummy',
-      });
-
-      if (payRes.data.success) {
-        setSuccessOrder(payRes.data.data);
-        clearCart();
-        clearQueueSession();
-      }
+      const tickets = resData?.tickets || [];
+      setSuccessOrder({ order: orderObj, tickets });
+      clearCart();
+      clearQueueSession();
     } catch (err: any) {
       const serverMsg = err.response?.data?.message || err.message;
-      setErrorMsg(serverMsg || 'Simulasi pembayaran gagal.');
+      setErrorMsg(serverMsg || 'Pembayaran via E-Wallet gagal.');
     } finally {
       setLoading(false);
     }
@@ -439,8 +463,8 @@ function CheckoutContent() {
   const timerMinutes = Math.floor(remainingSeconds / 60);
   const timerSecs = remainingSeconds % 60;
   const timerText = `${timerMinutes.toString().padStart(2, '0')}:${timerSecs.toString().padStart(2, '0')}`;
-  const timerProgress = (remainingSeconds / 60) * 100;
-  const isTimerWarning = remainingSeconds <= 15;
+  const timerProgress = (remainingSeconds / 180) * 100;
+  const isTimerWarning = remainingSeconds <= 30;
 
   if (successOrder) {
     return (
@@ -762,6 +786,65 @@ function CheckoutContent() {
               </div>
             </div>
 
+            {/* Payment Method Selection */}
+            <div className="space-y-2 pt-2 border-t border-zinc-100">
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider">
+                Pilih Metode Pembayaran
+              </label>
+              <div className="space-y-2">
+                {/* Option 1: E-Wallet Balance */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('wallet')}
+                  className={`w-full p-3.5 rounded-2xl border text-left transition-all tactile-btn ${
+                    paymentMethod === 'wallet'
+                      ? 'border-zinc-950 bg-zinc-50 ring-1 ring-zinc-950 shadow-2xs'
+                      : 'border-zinc-200 bg-white hover:border-zinc-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-zinc-900" />
+                      <span className="text-xs font-extrabold text-zinc-950">Saldo E-Wallet</span>
+                    </div>
+                    <span className={`text-xs font-black font-mono ${
+                      walletBalance >= finalPrice ? 'text-emerald-700' : 'text-red-600'
+                    }`}>
+                      {walletLoading ? '...' : `Rp ${walletBalance.toLocaleString('id-ID')}`}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-[10px] text-zinc-400">Dompet digital WhiteLabel</span>
+                    {walletBalance < finalPrice && !walletLoading && (
+                      <span className="text-[10px] font-bold text-red-500">Saldo kurang</span>
+                    )}
+                  </div>
+                </button>
+
+                {/* Option 2: Midtrans Direct */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('midtrans')}
+                  className={`w-full p-3.5 rounded-2xl border text-left transition-all tactile-btn ${
+                    paymentMethod === 'midtrans'
+                      ? 'border-zinc-950 bg-zinc-50 ring-1 ring-zinc-950 shadow-2xs'
+                      : 'border-zinc-200 bg-white hover:border-zinc-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-zinc-900" />
+                      <span className="text-xs font-extrabold text-zinc-950">Midtrans Langsung</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-md">
+                      Sandbox
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 mt-1">QRIS, Virtual Account, Kartu Kredit</p>
+                </button>
+              </div>
+            </div>
+
             {errorMsg && (
               <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs font-semibold border border-red-200">
                 {errorMsg}
@@ -770,12 +853,23 @@ function CheckoutContent() {
 
             <div className="space-y-2.5 pt-2">
               <button
-                onClick={handlePayClick}
-                disabled={loading || totalTickets === 0 || timerExpired}
+                onClick={paymentMethod === 'wallet' ? handleWalletPay : handlePayClick}
+                disabled={
+                  loading ||
+                  totalTickets === 0 ||
+                  timerExpired ||
+                  (paymentMethod === 'wallet' && walletBalance < finalPrice)
+                }
                 className="w-full py-3.5 rounded-xl bg-zinc-950 text-white font-extrabold text-xs hover:bg-zinc-800 shadow-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2 tactile-btn"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                {loading ? 'Memproses Midtrans...' : timerExpired ? 'Waktu Habis' : 'Bayar Sekarang via Midtrans'}
+                {loading
+                  ? 'Memproses...'
+                  : timerExpired
+                  ? 'Waktu Habis'
+                  : paymentMethod === 'wallet'
+                  ? `Bayar Rp ${finalPrice.toLocaleString('id-ID')} dengan E-Wallet`
+                  : 'Bayar Sekarang via Midtrans'}
               </button>
             </div>
           </div>

@@ -217,7 +217,7 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
             <h2 className="text-2xl font-black text-zinc-950 tracking-tight">Dalam Antrean Pembelian</h2>
             <p className="text-xs text-zinc-600 font-medium leading-relaxed max-w-sm mx-auto">
               {rank > 1
-                ? `Terdapat ${rank - 1} pengguna lain di depan Anda. Anda akan otomatis dialihkan ke checkout begitu giliran tiba.`
+                ? `Anda antrian ke-${rank}. Terdapat ${rank - 1} pengguna lain di depan Anda. Estimasi tunggu ~${countdown >= 60 ? `${Math.floor(countdown / 60)} menit` : `${countdown} detik`}. Anda akan otomatis dialihkan ke checkout begitu giliran tiba.`
                 : 'Sesi checkout sedang digunakan pengguna lain. Anda berada di urutan pertama dan akan otomatis masuk setelah sesi selesai.'}
             </p>
           </div>
@@ -240,7 +240,11 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
                 <Clock className="w-4 h-4 text-zinc-500" />
               </div>
               <span className="block text-2xl font-black text-zinc-950 font-mono">
-                {countdown > 0 ? `${countdown}s` : '...'}
+                {countdown > 0
+                  ? countdown >= 60
+                    ? `${Math.floor(countdown / 60)}m ${(countdown % 60).toString().padStart(2, '0')}s`
+                    : `${countdown}s`
+                  : '...'}
               </span>
               <span className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Est. Waktu</span>
             </div>
