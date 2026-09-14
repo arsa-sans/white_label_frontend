@@ -18,7 +18,6 @@ interface RefundModalProps {
 }
 
 export default function RefundModal({ isOpen, onClose, ticket, onSuccess }: RefundModalProps) {
-  const [type, setType] = useState<'refund' | 'reschedule'>('refund');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +27,7 @@ export default function RefundModal({ isOpen, onClose, ticket, onSuccess }: Refu
 
   const handleSubmit = async () => {
     if (!reason.trim()) {
-      setError('Alasan wajib diisi.');
+      setError('Alasan refund wajib diisi.');
       return;
     }
 
@@ -36,9 +35,8 @@ export default function RefundModal({ isOpen, onClose, ticket, onSuccess }: Refu
     setError('');
     try {
       const res = await api.post('/refunds', {
-        order_id: ticket.order_id || ticket.id,
+        order_id: ticket.order_id,
         ticket_id: ticket.id,
-        type,
         reason: reason.trim(),
       });
       if (res.data.success) {
@@ -46,14 +44,13 @@ export default function RefundModal({ isOpen, onClose, ticket, onSuccess }: Refu
         onSuccess?.();
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Gagal mengajukan permohonan. Silakan coba lagi.');
+      setError(err.response?.data?.message || 'Gagal mengajukan refund. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = () => {
-    setType('refund');
     setReason('');
     setError('');
     setSuccess(false);
@@ -66,8 +63,8 @@ export default function RefundModal({ isOpen, onClose, ticket, onSuccess }: Refu
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
           <h2 className="text-base font-extrabold text-zinc-950 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-600" />
-            Ajukan Refund / Reschedule
+            <RefreshCw className="w-5 h-5 text-red-600" />
+            Pengajuan Refund Tiket
           </h2>
           <button onClick={handleClose} className="p-1.5 rounded-xl hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition">
             <X className="w-5 h-5" />
@@ -80,9 +77,9 @@ export default function RefundModal({ isOpen, onClose, ticket, onSuccess }: Refu
               <div className="w-14 h-14 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center mx-auto text-emerald-600">
                 <CheckCircle2 className="w-7 h-7" />
               </div>
-              <h3 className="text-base font-bold text-zinc-950">Permohonan Berhasil Diajukan!</h3>
+              <h3 className="text-base font-bold text-zinc-950">Pengajuan Refund Berhasil!</h3>
               <p className="text-xs text-zinc-500 max-w-xs mx-auto">
-                Tim organizer akan meninjau permohonan Anda. Notifikasi status akan dikirimkan setelah diverifikasi.
+                Permohonan refund Anda sedang ditinjau. Setelah disetujui, dana akan langsung masuk ke Saldo E-Wallet website Anda.
               </p>
               <button
                 onClick={handleClose}
@@ -107,53 +104,21 @@ export default function RefundModal({ isOpen, onClose, ticket, onSuccess }: Refu
                 )}
               </div>
 
-              {/* Type Selection */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">Jenis Permohonan</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setType('refund')}
-                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold transition-all tactile-btn ${
-                      type === 'refund'
-                        ? 'border-red-300 bg-red-50 text-red-700 shadow-2xs'
-                        : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300'
-                    }`}
-                  >
-                    <RefreshCw className="w-4 h-4 text-red-600" />
-                    Refund ke E-Wallet
-                  </button>
-                  <button
-                    onClick={() => setType('reschedule')}
-                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold transition-all tactile-btn ${
-                      type === 'reschedule'
-                        ? 'border-zinc-950 bg-zinc-950 text-white shadow-2xs'
-                        : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300'
-                    }`}
-                  >
-                    <ArrowRightLeft className="w-4 h-4" />
-                    Reschedule (Jadwal)
-                  </button>
-                </div>
+              {/* Wallet Info Notice */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-800 font-medium leading-relaxed">
+                💡 Dana refund akan dikreditkan langsung ke <strong>Saldo E-Wallet website WhiteLabel</strong> Anda, apapun metode pembayaran yang digunakan saat checkout.
               </div>
-
-              {type === 'refund' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 text-xs text-blue-700 font-medium leading-relaxed">
-                  💡 Dana refund akan dikreditkan langsung ke <strong>Saldo E-Wallet website WhiteLabel</strong> Anda, apapun metode pembayaran yang digunakan saat checkout.
-                </div>
-              )}
 
               {/* Reason */}
               <div>
-                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">Alasan</label>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                  Alasan Pengajuan Refund
+                </label>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={3}
-                  placeholder={
-                    type === 'refund'
-                      ? 'Jelaskan alasan pengembalian dana...'
-                      : 'Jelaskan alasan pindah jadwal...'
-                  }
+                  placeholder="Tuliskan alasan pengembalian dana tiket Anda..."
                   className="w-full px-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-xs text-zinc-900 font-semibold focus:ring-2 focus:ring-zinc-950 focus:bg-white transition placeholder:text-zinc-400 resize-none"
                 />
               </div>
@@ -176,17 +141,9 @@ export default function RefundModal({ isOpen, onClose, ticket, onSuccess }: Refu
                 <button
                   onClick={handleSubmit}
                   disabled={loading}
-                  className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 tactile-btn ${
-                    type === 'refund'
-                      ? 'bg-red-600 hover:bg-red-700 text-white'
-                      : 'bg-zinc-900 hover:bg-zinc-800 text-white'
-                  }`}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 tactile-btn bg-red-600 hover:bg-red-700 text-white flex items-center justify-center gap-2"
                 >
-                  {loading
-                    ? 'Mengirim...'
-                    : type === 'refund'
-                    ? 'Ajukan Refund'
-                    : 'Ajukan Reschedule'}
+                  {loading ? 'Mengirim...' : 'Ajukan Refund'}
                 </button>
               </div>
             </>

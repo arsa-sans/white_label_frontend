@@ -9,6 +9,7 @@ import { io } from 'socket.io-client';
 
 interface TicketItem {
   id: string;
+  order_id?: string;
   event_name: string;
   event_date: string;
   location: string;
@@ -247,7 +248,7 @@ function DynamicQRCard({
                   onClick={() => onRefundClick(ticket)}
                   className="px-3 py-1.5 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-zinc-700 text-xs font-semibold transition tactile-btn"
                 >
-                  Refund / Reschedule
+                  Ajukan Refund
                 </button>
               )}
             </div>
@@ -426,13 +427,14 @@ export default function MyTicketsPage() {
         </div>
       )}
 
-      {/* Refund / Reschedule Modal */}
+      {/* Refund Modal */}
       {refundTarget && (
         <RefundModal
           isOpen={!!refundTarget}
           onClose={() => setRefundTarget(null)}
           ticket={{
             id: refundTarget.id,
+            order_id: refundTarget.order_id,
             event_name: refundTarget.event_name,
             tier_name: refundTarget.seat_name,
             price: refundTarget.price,

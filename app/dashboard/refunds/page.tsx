@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  ArrowRightLeft,
   Search,
   Loader2,
   Receipt,
@@ -24,7 +23,7 @@ interface RefundItem {
   order_id: string;
   user_id: string;
   ticket_id?: string;
-  type: 'refund' | 'reschedule';
+  type: 'refund';
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
   refund_amount?: number;
@@ -147,14 +146,14 @@ export default function RefundsPage() {
               <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
             </button>
             <ChevronRight className="w-3.5 h-3.5 text-zinc-300" />
-            <span className="text-xs font-bold text-zinc-800">Refund &amp; Reschedule</span>
+            <span className="text-xs font-bold text-zinc-800">Refund Tiket</span>
           </div>
           <h1 className="text-2xl font-black text-zinc-950 flex items-center gap-2 tracking-tight">
             <Receipt className="w-6 h-6 text-zinc-900" />
-            Manajemen Refund &amp; Reschedule
+            Manajemen Refund Tiket
           </h1>
           <p className="text-xs text-zinc-500 font-medium mt-1">
-            Tinjau dan proses permohonan pengembalian dana tiket atau pemindahan jadwal festival.
+            Tinjau dan proses permohonan pengembalian dana tiket pengguna langsung ke Saldo E-Wallet website.
           </p>
         </div>
 
@@ -232,7 +231,7 @@ export default function RefundsPage() {
         <EmptyState
           icon={Receipt}
           title="Tidak Ada Permohonan"
-          description="Belum ada permohonan refund atau reschedule yang cocok dengan filter saat ini."
+          description="Belum ada permohonan refund tiket yang cocok dengan filter saat ini."
         />
       ) : (
         <div className="space-y-4">
@@ -246,18 +245,8 @@ export default function RefundsPage() {
                 <div className="space-y-3 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     {statusBadge(refund.status)}
-                    <span
-                      className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
-                        refund.type === 'refund'
-                          ? 'bg-zinc-100 text-zinc-900 border-zinc-300'
-                          : 'bg-zinc-100 text-zinc-900 border-zinc-300'
-                      }`}
-                    >
-                      {refund.type === 'refund' ? (
-                        <><RefreshCw className="w-3 h-3 text-zinc-600" /> Refund</>
-                      ) : (
-                        <><ArrowRightLeft className="w-3 h-3 text-zinc-600" /> Reschedule</>
-                      )}
+                    <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border bg-zinc-100 text-zinc-900 border-zinc-300">
+                      <RefreshCw className="w-3 h-3 text-zinc-600" /> Refund ke E-Wallet
                     </span>
                     {refund.refund_amount && (
                       <span className="text-xs font-black text-zinc-950 font-mono">
