@@ -7,6 +7,36 @@ import { io, Socket } from 'socket.io-client';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
 
+// Helper formatting for compact stat box: e.g. "2j 15m", "14m 20s", "45s"
+function formatEstimatedWait(seconds: number): string {
+  if (seconds <= 0) return '0s';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  if (hours > 0) {
+    return `${hours}j ${minutes.toString().padStart(2, '0')}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${secs.toString().padStart(2, '0')}s`;
+  }
+  return `${secs}s`;
+}
+
+// Helper formatting for descriptive text: e.g. "2 jam 15 menit", "14 menit 30 detik", "45 detik"
+function formatEstimatedWaitLong(seconds: number): string {
+  if (seconds <= 0) return 'segera';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours} jam`);
+  if (minutes > 0) parts.push(`${minutes} menit`);
+  if (secs > 0 && hours === 0) parts.push(`${secs} detik`);
+  return parts.join(' ') || `${seconds} detik`;
+}
+
 export default function QueuePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const eventId = resolvedParams.id;
@@ -81,7 +111,9 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
         const data = res.data.data;
         setSessionId(data.session_id);
         setRank(data.rank);
-        const wait = data.estimated_wait_seconds || (data.admitted ? 0 : 5);
+        const wait = data.estimated_wait_seconds !== undefined
+          ? data.estimated_wait_seconds
+          : (data.admitted ? 0 : Math.max(0, (data.rank - 1) * 180 + 180));
         setEstimatedWait(wait);
 
         if (data.admitted) {
@@ -113,9 +145,12 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
 
           if (data.estimated_wait_seconds !== undefined && !admitted) {
             setEstimatedWait(data.estimated_wait_seconds);
-            if (data.estimated_wait_seconds > 0) {
-              setCountdown(data.estimated_wait_seconds);
-            }
+            setCountdown((prev) => {
+              if (prev <= 0 || Math.abs(prev - data.estimated_wait_seconds) > 3) {
+                return data.estimated_wait_seconds;
+              }
+              return prev;
+            });
           }
 
           if (data.admitted) {
@@ -217,7 +252,7 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
             <h2 className="text-2xl font-black text-zinc-950 tracking-tight">Dalam Antrean Pembelian</h2>
             <p className="text-xs text-zinc-600 font-medium leading-relaxed max-w-sm mx-auto">
               {rank > 1
-                ? `Anda antrian ke-${rank}. Terdapat ${rank - 1} pengguna lain di depan Anda. Estimasi tunggu ~${countdown >= 60 ? `${Math.floor(countdown / 60)} menit` : `${countdown} detik`}. Anda akan otomatis dialihkan ke checkout begitu giliran tiba.`
+                ? `Anda antrian ke-${rank} (terdapat ${rank - 1} pengguna di depan Anda). Estimasi waktu tunggu ~${formatEstimatedWaitLong(countdown)} (1 sesi checkout = 3 menit). Anda akan otomatis dialihkan ke checkout begitu giliran tiba.`
                 : 'Sesi checkout sedang digunakan pengguna lain. Anda berada di urutan pertama dan akan otomatis masuk setelah sesi selesai.'}
             </p>
           </div>
@@ -239,12 +274,8 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
               <div className="flex items-center justify-center gap-1.5 mb-1">
                 <Clock className="w-4 h-4 text-zinc-500" />
               </div>
-              <span className="block text-2xl font-black text-zinc-950 font-mono">
-                {countdown > 0
-                  ? countdown >= 60
-                    ? `${Math.floor(countdown / 60)}m ${(countdown % 60).toString().padStart(2, '0')}s`
-                    : `${countdown}s`
-                  : '...'}
+              <span className="block text-2xl font-black text-zinc-950 font-mono tracking-tight">
+                {countdown > 0 ? formatEstimatedWait(countdown) : '...'}
               </span>
               <span className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Est. Waktu</span>
             </div>
