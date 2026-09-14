@@ -53,6 +53,7 @@ function CheckoutContent() {
   const [remainingSeconds, setRemainingSeconds] = useState<number>(60);
   const [timerExpired, setTimerExpired] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const expiresAtRef = useRef<number>(0);
 
   // Promo Code State
   const [promoInput, setPromoInput] = useState('');
@@ -111,33 +112,37 @@ function CheckoutContent() {
         params: { event_id: eventId },
       });
       if (res.data.success && res.data.data.valid) {
-        const remaining = res.data.data.remaining_seconds;
+        const remaining = Math.max(1, res.data.data.remaining_seconds);
         setRemainingSeconds(remaining);
         startTimer(remaining);
       } else {
-        // Session not valid, but allow checkout anyway for demo flexibility
-        // Use default 60 seconds
-        setRemainingSeconds(60);
-        startTimer(60);
+        // User has not been admitted to checkout or session expired! Must wait in queue.
+        router.replace(`/event/${eventId}/queue`);
       }
-    } catch {
-      // Fallback: use 60s timer
-      setRemainingSeconds(60);
-      startTimer(60);
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        router.push('/login');
+      } else {
+        router.replace(`/event/${eventId}/queue`);
+      }
     }
   };
 
   const startTimer = (seconds: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
-    let remaining = seconds;
+    expiresAtRef.current = Date.now() + seconds * 1000;
+    setRemainingSeconds(seconds);
+
     timerRef.current = setInterval(() => {
-      remaining--;
-      setRemainingSeconds(Math.max(0, remaining));
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((expiresAtRef.current - now) / 1000));
+      setRemainingSeconds(remaining);
+
       if (remaining <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
         setTimerExpired(true);
       }
-    }, 1000);
+    }, 500);
   };
 
   // Cleanup timer on unmount
@@ -150,8 +155,11 @@ function CheckoutContent() {
   // Handle timer expiry
   useEffect(() => {
     if (timerExpired && !successOrder) {
+      if (timerRef.current) clearInterval(timerRef.current);
       clearCart();
       clearQueueSession();
+      api.post('/queue/leave', { event_id: eventId }).catch(() => {});
+
       const doRedirect = async () => {
         await confirm({
           segmentTag: 'SESI HABIS',
@@ -298,9 +306,6 @@ function CheckoutContent() {
         throw new Error('Gagal membuat pesanan di server.');
       }
 
-      // Stop timer after order is created
-      if (timerRef.current) clearInterval(timerRef.current);
-
       // Ensure snap script is loaded
       await loadSnapScript();
 
@@ -310,6 +315,7 @@ function CheckoutContent() {
         if (window.snap) {
           window.snap.pay(snapToken, {
             onSuccess: async (result: any) => {
+              if (timerRef.current) clearInterval(timerRef.current);
               const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
                 payment_method: 'midtrans',
                 transaction_result: result,
@@ -321,6 +327,7 @@ function CheckoutContent() {
               }
             },
             onPending: async (result: any) => {
+              if (timerRef.current) clearInterval(timerRef.current);
               const payRes = await api.post(`/payments/orders/${orderObj.id}/pay`, {
                 payment_method: 'midtrans',
                 transaction_result: result,
@@ -332,11 +339,12 @@ function CheckoutContent() {
               }
             },
             onError: () => {
-              setErrorMsg('Pembayaran gagal atau dibatalkan di Midtrans Sandbox.');
+              setErrorMsg('Pembayaran gagal atau dibatalkan di Midtrans Sandbox. Sesi checkout Anda masih aktif.');
               setLoading(false);
             },
             onClose: () => {
-              setErrorMsg('Jendela pembayaran Midtrans ditutup sebelum selesai.');
+              // User closed Midtrans popup - session and countdown remain active!
+              setErrorMsg('Jendela pembayaran Midtrans ditutup. Sesi checkout Anda masih berjalan, silakan klik tombol bayar lagi sebelum batas waktu habis.');
               setLoading(false);
             },
           });
@@ -524,33 +532,45 @@ function CheckoutContent() {
 
       {/* Back Button */}
       <button
-        onClick={() => {
+        onClick={async () => {
+          const ok = await confirm({
+            segmentTag: 'BATALKAN CHECKOUT',
+            title: 'Batalkan Sesi Checkout?',
+            message: 'Apakah Anda yakin ingin membatalkan sesi checkout ini? Antrean akan diberikan kepada pengguna berikutnya.',
+            confirmText: 'Ya, Batalkan',
+            cancelText: 'Kembali',
+            variant: 'warning',
+          });
+          if (!ok) return;
+
+          if (timerRef.current) clearInterval(timerRef.current);
           clearCart();
           clearQueueSession();
+          api.post('/queue/leave', { event_id: eventId }).catch(() => {});
           router.push(`/event/${eventId}`);
         }}
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs"
+        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-bold transition-all shadow-2xs tactile-btn"
       >
-        <ArrowLeft className="w-4 h-4 text-slate-600" />
+        <ArrowLeft className="w-4 h-4 text-zinc-700" />
         Batalkan & Kembali
       </button>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Tier Selection */}
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-xs">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-3xl border border-zinc-200 p-6 space-y-4 shadow-xs">
             <div>
               <h2 className="text-lg font-extrabold text-zinc-950 flex items-center gap-2">
                 <Ticket className="w-5 h-5 text-zinc-950" />
                 Pilih Kategori Tiket
               </h2>
               {eventName && (
-                <p className="text-xs text-slate-500 font-medium mt-1">{eventName}</p>
+                <p className="text-xs text-zinc-500 font-medium mt-1">{eventName}</p>
               )}
             </div>
 
             {tiersLoading ? (
-              <div className="text-center py-8 text-slate-400 text-sm animate-pulse">Memuat tiket...</div>
+              <div className="text-center py-8 text-zinc-400 text-sm animate-pulse">Memuat tiket...</div>
             ) : (
               <div className="space-y-4">
                 {tiers.map((tier) => {
@@ -633,20 +653,20 @@ function CheckoutContent() {
         </div>
 
         {/* Order Summary Sidebar */}
-        <div className="md:col-span-1 space-y-4">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-xs">
-            <h3 className="text-base font-bold text-slate-900">Ringkasan Pesanan</h3>
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-white rounded-3xl border border-zinc-200 p-4 sm:p-6 space-y-4 shadow-xs overflow-hidden">
+            <h3 className="text-base font-bold text-zinc-950">Ringkasan Pesanan</h3>
 
             {totalTickets === 0 ? (
-              <p className="text-xs text-slate-400 py-4 text-center">Belum ada tiket dipilih</p>
+              <p className="text-xs text-zinc-400 py-4 text-center">Belum ada tiket dipilih</p>
             ) : (
-              <div className="space-y-3 text-xs border-b border-slate-100 pb-4">
+              <div className="space-y-3 text-xs border-b border-zinc-100 pb-4">
                 {eventCartItems.map((item) => (
                   <div key={item.tier_id} className="flex justify-between items-center">
-                    <span className="text-slate-600 font-medium">
+                    <span className="text-zinc-600 font-medium">
                       {item.tier_name} × {item.quantity}
                     </span>
-                    <span className="font-bold text-slate-900">
+                    <span className="font-bold text-zinc-950 font-mono">
                       Rp {(item.quantity * item.unit_price).toLocaleString('id-ID')}
                     </span>
                   </div>
@@ -655,8 +675,8 @@ function CheckoutContent() {
             )}
 
             {/* Promo Code Section */}
-            <div className="space-y-2 pt-1 border-b border-slate-100 pb-4">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <div className="space-y-2 pt-1 border-b border-zinc-100 pb-4">
+              <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5 text-zinc-500" />
                 Punya Kode Promo?
               </label>
@@ -684,19 +704,19 @@ function CheckoutContent() {
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2 w-full min-w-0">
                   <input
                     type="text"
                     placeholder="KODE PROMO"
                     value={promoInput}
                     onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
-                    className="flex-1 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition"
+                    className="min-w-0 flex-1 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white transition"
                   />
                   <button
                     type="button"
                     onClick={handleApplyPromo}
                     disabled={validatingPromo || !promoInput.trim()}
-                    className="px-3.5 py-2 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center gap-1 tactile-btn shadow-2xs"
+                    className="shrink-0 px-3.5 py-2 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center justify-center gap-1 tactile-btn shadow-2xs whitespace-nowrap"
                   >
                     {validatingPromo ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />

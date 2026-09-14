@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Users, Clock, Ticket, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Loader2, Users, Clock, Ticket, ShieldCheck, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
 
@@ -23,6 +24,7 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
   const [eventBanner, setEventBanner] = useState<string>('');
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -41,15 +43,33 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
     }).catch(() => {});
   }, [eventId]);
 
-  // Join queue on mount
+  // Join queue on mount and connect Socket.IO
   useEffect(() => {
     if (!user) return;
     setActiveEventId(eventId);
     joinQueue();
 
+    // Connect to WebSocket for instant admission push
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:5000';
+    const socket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+    });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      socket.emit('join_event', eventId);
+    });
+
+    socket.on('queue_admitted', (data: any) => {
+      if (data.event_id === eventId && (data.user_id === user.id || data.session_id === sessionId)) {
+        handleAdmitted(data);
+      }
+    });
+
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
+      if (socketRef.current) socketRef.current.disconnect();
     };
   }, [eventId, user]);
 
@@ -61,14 +81,15 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
         const data = res.data.data;
         setSessionId(data.session_id);
         setRank(data.rank);
-        setEstimatedWait(data.estimated_wait_seconds || 5);
+        const wait = data.estimated_wait_seconds || (data.admitted ? 0 : 5);
+        setEstimatedWait(wait);
 
         if (data.admitted) {
           handleAdmitted(data);
         } else {
-          setCountdown(data.estimated_wait_seconds || 5);
+          setCountdown(wait);
           startPolling(data.session_id);
-          startCountdown(data.estimated_wait_seconds || 5);
+          startCountdown(wait);
         }
       }
     } catch (err: any) {
@@ -90,6 +111,13 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
           setRank(data.rank);
           setTotal(data.total);
 
+          if (data.estimated_wait_seconds !== undefined && !admitted) {
+            setEstimatedWait(data.estimated_wait_seconds);
+            if (data.estimated_wait_seconds > 0) {
+              setCountdown(data.estimated_wait_seconds);
+            }
+          }
+
           if (data.admitted) {
             handleAdmitted(data);
           }
@@ -97,7 +125,7 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
       } catch {
         // silent
       }
-    }, 2000);
+    }, 1500);
   };
 
   const startCountdown = (seconds: number) => {
@@ -125,7 +153,19 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
     // Short delay then redirect to checkout
     setTimeout(() => {
       router.push(`/checkout?event_id=${eventId}`);
-    }, 1500);
+    }, 1200);
+  };
+
+  const handleLeaveQueue = async () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    if (socketRef.current) socketRef.current.disconnect();
+
+    try {
+      await api.post('/queue/leave', { event_id: eventId });
+    } catch {}
+
+    router.push(`/event/${eventId}`);
   };
 
   if (!user) return null;
@@ -167,16 +207,18 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
         {/* Status Text */}
         {admitted ? (
           <div className="space-y-2">
-            <h2 className="text-2xl font-black text-emerald-800 tracking-tight">Giliran Anda Telah Tiba</h2>
+            <h2 className="text-2xl font-black text-emerald-700 tracking-tight">Giliran Anda Telah Tiba!</h2>
             <p className="text-xs text-zinc-600 font-medium">
-              Mengalihkan ke halaman checkout tiket...
+              Sesi checkout terbuka. Mengalihkan ke halaman checkout tiket...
             </p>
           </div>
         ) : (
           <div className="space-y-2">
             <h2 className="text-2xl font-black text-zinc-950 tracking-tight">Dalam Antrean Pembelian</h2>
-            <p className="text-xs text-zinc-500 font-medium">
-              Mohon tunggu, Anda akan dialihkan ke sesi checkout secara otomatis.
+            <p className="text-xs text-zinc-600 font-medium leading-relaxed max-w-sm mx-auto">
+              {rank > 1
+                ? `Terdapat ${rank - 1} pengguna lain di depan Anda. Anda akan otomatis dialihkan ke checkout begitu giliran tiba.`
+                : 'Sesi checkout sedang digunakan pengguna lain. Anda berada di urutan pertama dan akan otomatis masuk setelah sesi selesai.'}
             </p>
           </div>
         )}
@@ -189,7 +231,7 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
                 <Users className="w-4 h-4 text-zinc-500" />
               </div>
               <span className="block text-2xl font-black text-zinc-950 font-mono">
-                #{rank}
+                #{rank || 1}
               </span>
               <span className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Posisi</span>
             </div>
@@ -207,7 +249,7 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
                 <Ticket className="w-4 h-4 text-zinc-500" />
               </div>
               <span className="block text-2xl font-black text-zinc-950 font-mono">
-                {total || '-'}
+                {total || rank || 1}
               </span>
               <span className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Total Antre</span>
             </div>
@@ -219,6 +261,19 @@ export default function QueuePage({ params }: { params: Promise<{ id: string }> 
           <ShieldCheck className="w-4 h-4 text-zinc-900 shrink-0" />
           <span>Sistem antrian virtual fair-access. Jangan menutup atau merefresh halaman ini.</span>
         </div>
+
+        {/* Leave Queue Button */}
+        {!admitted && (
+          <div className="pt-2">
+            <button
+              onClick={handleLeaveQueue}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200/60 transition tactile-btn"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Batal Antre & Kembali
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
