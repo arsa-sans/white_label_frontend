@@ -39,7 +39,6 @@ function DynamicQRCard({
   const isCancelled = ticket.status === 'void' || ticket.status === 'refunded';
 
   useEffect(() => {
-    // If ticket is already used or void, don't run dynamic rotation
     if (isUsed || isCancelled) {
       setLoading(false);
       return;
