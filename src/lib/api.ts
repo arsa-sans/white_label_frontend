@@ -1,7 +1,6 @@
 import axios from 'axios';
 
 let rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-// Ensure rawBaseUrl ends with /api/v1
 if (!rawBaseUrl.endsWith('/api/v1')) {
   rawBaseUrl = rawBaseUrl.replace(/\/+$/, '') + '/api/v1';
 }
