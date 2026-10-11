@@ -13,7 +13,6 @@ export default function GoogleProvider({ children }: { children: React.ReactNode
         'Add it to your .env.local file.'
       );
     }
-    // Render children without GoogleOAuthProvider so the rest of the app still works
     return <>{children}</>;
   }
 
